@@ -7,10 +7,10 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # 
 
-all: main
+all: RNAprofile
 
-main: hashtbl.o main.o profile.o summaryGraph.o graph.o memoryDFS.o
-	cc -o main -Wall -pedantic -g -lm hashtbl.o main.o profile.o summaryGraph.o graph.o memoryDFS.o
+RNAprofile: hashtbl.o main.o profile.o summaryGraph.o graph.o memoryDFS.o
+	cc -o RNAprofile -Wall -pedantic -g -lm hashtbl.o main.o profile.o summaryGraph.o graph.o memoryDFS.o
 
 hashtbl.o: hashtbl.c hashtbl.h
 	cc -o hashtbl.o -Wall -pedantic -g -c hashtbl.c
