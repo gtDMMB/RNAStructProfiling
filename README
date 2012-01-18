@@ -1,6 +1,10 @@
 RNAStructProfiling
 
-To compile on a Unix/Linus machine, make sure these are in the same directory:
+To download source code, click on "zip" link on the RNAStructProfiling github
+page (https://github.com/gtfold/RNAStructProfiling/zipball/master).
+
+To compile on a Unix/Linus machine, make sure the following files are in the
+same directory:
 --main.c
 --profile.h
 --profile.c
@@ -14,16 +18,25 @@ To compile on a Unix/Linus machine, make sure these are in the same directory:
 --memoryDFS.c
 --memoryDFS.h
 
-Type 'make'.
+Open a terminal window, navigate to the directory that contains
+the above files, and type 'make' to compile the program.
 
-To run, you will need to input 1) a sequence file, and 2) an sfold 'sample_1000.out' file, or any other structure file that lists structures in triplet notation, with the delineation "Structure [number]" before every structure. Included in the repository is a sequence file and a sample_1000 file from ecoli 5S that may be used to run the program.
+To run, you will need to input 1) a sequence file, and 2) an
+sfold 'sample_1000.out' file, or any other structure file that
+lists structures in triplet notation, with the delineation
+"Structure [number]" on a separate line before every structure.
+(Included in the github repository is a sequence file and a sample
+file from ecoli5S that may be used to run the program.)
 
-Type './main [seq file] [sample file] [options]' to run.
+Usage (from within that same directory): 
+./RNAprofile [seq file] [sample file] [options]
 
 Common options:
-
--h [percent] = filter out all helix classes that occur less than [h] number of times; in percent
--p [percent] = filter out all profiles that occur less than [p] number of times; in percent
--v = verbose output
--g = disable graph making component of program (if just interested in helix and profile stats)
--o [file name] = produces the output graphviz dot file called [file name]; otherwise, output is called 'profile.dot'
+-h [percent] = filter out all helix classes that occur in less than [h] percent
+ of the input sample structures
+-p [percent] = filter out all profiles that occur less than [p] percent of the
+ input sample structures
+-g = disable graph making component of program (if only interested in helix and
+ profile stats)
+-o [file name] = produces the output graphviz dot file called [file name];
+ 'profile.dot' used by default
