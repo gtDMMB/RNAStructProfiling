@@ -1,0 +1,3 @@
+>gi|42753|emb|X00414.1| Escherichia coli 5S rRNA sequence
+tgcctggcgg ccgtagcgcg gtggtcccac ctgaccccat gccgaactca gaagtgaaac 
+gccgtagcgc cgatggtagt gtggggtctc cccatgcgag agtagggaac tgccaggcat
