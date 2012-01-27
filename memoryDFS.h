@@ -4,8 +4,7 @@
 #include "graph.h"
 #include "hashtbl.h"
 
-void start_trans_reductn(HASHTBL *hash,int numNodes);
-void MemoryDFS(node* root);
+HASHTBL* MemoryDFS(node* root);
 void MDFSHelper(node* root, node* v);
 
 /* Returns 1 if the node was found, 0 otherwise */

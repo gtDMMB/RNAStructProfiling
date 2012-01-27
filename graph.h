@@ -1,30 +1,40 @@
 #ifndef GRAPH_H
 #define GRAPH_H
 
-#include "hashtbl.h"
-
 #define SIZE 4
-#define HASHSIZE 31
 
 /* Node Struct */
 typedef struct node
 {
     /*int label;*/
-    char *label;
-    struct node **neighbors;
-    int numNeighbors;
-    int DFS; /* boolean value */
+  char *label;
+  struct node **neighbors;
+  int numNeighbors;
+  int nsize;
+  int sfreq;
+  int gfreq;
+  char *bracket;
+  char **diff;
+  int DFS; /* boolean value */
+  unsigned long sum;
 } node;
 
-void generateGraph(HASHTBL *hash);
 node* createNode();
-void addNode(node* n);
-void addNeighbors(HASHTBL *hash);
+void initialize();
+unsigned long binary_rep();
+void find_LCAs();
+int advance(int new, int oldk);
+int not_in_sums(unsigned long num, int k,node **vertices);
+char* convert_binary(unsigned long binary);
+void found_edge(node *child,node *parent) ;
+void calc_gfreq();
+void removeEdges();
+void removeEdge();
+void print_edges();
 void printGraph();
 void freeGraph();
 
-extern node* graph;
-extern HASHTBL* hashgraph;
+extern node** graph;
 extern int GRAPHSIZE;
 
 #endif
