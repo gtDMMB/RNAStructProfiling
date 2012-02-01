@@ -116,10 +116,7 @@ int main(int argc, char *argv[]) {
   
   if (set->opt->GRAPH) {
     fp = fopen(set->opt->OUTPUT,"w");
-    fputs("digraph G {\n",fp);
-    fprintf(fp,"\tlabel = \"%s\";\n",set->opt->OUTPUT);
-    fprintf(fp,"\tpad = 0.5;\n");
-    fprintf(fp,"\tnodesep = 0.5;\n");
+    init_graph(fp,set);
     initialize(set);
     find_LCAs(fp,set);
     calc_gfreq(fp,set);

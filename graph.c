@@ -27,6 +27,20 @@ node* createNode(char *name)
   return newNode;
 }
 
+void init_graph(FILE *fp, Set *set) {
+  int i;
+
+  fputs("digraph G {\n",fp);
+  //fprintf(fp,"\tlabel = \"%s\";\n",set->opt->OUTPUT);
+  fprintf(fp,"\tpad = 0.5;\n");
+  fprintf(fp,"\tnodesep = 0.5;\n");
+  fprintf(fp,"\"legend\" [label = < <table border=\"0\" cellborder=\"1\" cellspacing=\"0\"><tr><td>Helix</td><td>Triplet</td><td>Frequency</td></tr>\n");
+  for (i = 0; i < set->num_fhc; i++) {
+    fprintf(fp,"<tr><td>%d</td><td>%s</td><td>%d</td></tr>\n",i+1,set->helices[i]->maxtrip,set->helices[i]->freq);
+  }
+  fprintf(fp,"</table>>, shape = plaintext, fontsize=11];\n");
+}
+
 void initialize(Set *set) {
   int i,size=1;
   node* root;
@@ -112,7 +126,7 @@ void find_LCAs(FILE *fp,Set *set) {
   set->graph->neighbors = vertices;
   set->graph->diff = diff;
   set->graph->numNeighbors = k;
-  printf("graph size is now %d\n",k);
+  printf("Total number of vertices: %d\n",k);
   set->graph->nsize = size;
 }
 
@@ -209,8 +223,6 @@ void calc_gfreq(FILE *fp,Set *set) {
     vert = set->graph->neighbors[i];
     graph[i] = vert;
     for (j = 0; j < set->prof_num; j++) {
-      //printf("investigating %s and prof[%d] = %s\n",node->data,i,profileID[i]);
-      //printf("%u & %u = %u\n",sum[j],sums[i],sum[j]&sums[i]);
       if (sum[j] == vert->sum) {
 	vert->sfreq = set->profiles[j]->freq;
 	vert->bracket = set->profiles[j]->bracket;
@@ -219,12 +231,88 @@ void calc_gfreq(FILE *fp,Set *set) {
 	vert->gfreq += set->profiles[j]->freq;
     }
     if (vert->sfreq == 0)
-      fprintf(fp,"\"%s\" [label = \"0/%d\"];\n",vert->label,vert->gfreq);
-    else
-      fprintf(fp,"\"%s\" [label = \"%s\\n%d/%d\"];\n",vert->label,vert->bracket,vert->sfreq,vert->gfreq);
+      make_oval_bracket(vert);
+    fprintf(fp,"\"%s\" [label = \"%s\\n%d/%d\"];\n",vert->label,vert->bracket,vert->sfreq,vert->gfreq);
   }
   fprintf(fp,"\" \" [label = \"%d/%d\"];\n",set->graph->sfreq,set->opt->NUMSTRUCTS);
   graph[i] = set->graph;
+}
+
+void make_oval_bracket(node *vert) {
+  int i = 0,j=0,k,h=0,m=0,count = 0,*df,*skip,*helices;
+  char *pbrac, *cbrac,*diff,*val;
+  node *child;
+
+  child = malloc(sizeof(node));
+  diff = find_child_bracket(vert,child);
+
+  df = malloc(sizeof(int)*(strlen(diff)/2 + 1));
+  for (val = strtok(mystrdup(diff)," "); val; val = strtok(NULL," ")) {
+    df[i++] = atoi(val);
+  }
+  cbrac = mystrdup(child->bracket);
+  pbrac = malloc(sizeof(char)*strlen(cbrac));
+  skip = malloc(sizeof(int)*i);
+  helices = malloc(sizeof(int)*(strlen(cbrac)/3 + 1));
+  for (val = strtok(cbrac,"[]"); val; val = strtok(NULL,"[]")) {
+    helices[j++] = atoi(val);
+  }
+  val = malloc(sizeof(char)*ARRAYSIZE);
+  cbrac = child->bracket;
+  pbrac[0] = '\0';
+  for (j = 0; j < strlen(cbrac); j++) {
+    if (cbrac[j] == '[') {
+      for (k=0; k < i; k++)
+	if (df[k] == helices[h])
+	  //printf("skipping %d\n",df[k]);
+	  break;
+      if (k == i) {
+	sprintf(val,"[%d",helices[h]);
+	pbrac = strcat(pbrac,val);
+      } else
+	skip[m++] = count;
+      h++;
+      count++;
+    }
+    
+    else if (cbrac[j] == ']') {
+      count--;
+      if (m == 0 || count != skip[m-1])
+	pbrac = strcat(pbrac,"]");
+      else 
+	m--;
+    }
+  }
+  //printf("bracket based on %s for %s is %s\n",child->bracket,vert->label,pbrac);
+  vert->bracket = pbrac;
+  free(df);
+  free(helices);
+  free(skip);
+  free(val);
+  free(child);
+}
+
+char* find_child_bracket(node *vert, node *child) {
+  int i = 0;
+  char *nowdiff,*concat,*diff;
+
+  if (vert->numNeighbors == 0)
+    fprintf(stderr,"Oval should have children in find_child_bracket()\n");
+
+  //printf("finding bracket child for %s\n",vert->label);
+  for (i = 0; i < vert->numNeighbors; i++) {
+    if (vert->neighbors[i]->bracket) {
+      //printf("found bracket %s for %s\n",vert->neighbors[i]->bracket,vert->neighbors[i]->label);
+      *child = *(vert->neighbors[i]);
+      return vert->diff[i];
+    }
+  }
+  //printf("going to child %s\n",vert->neighbors[0]->label);
+  diff = find_child_bracket(vert->neighbors[0],child);
+  nowdiff = vert->diff[0];
+  concat = malloc(sizeof(char)*(strlen(nowdiff)+strlen(diff)+1));
+  sprintf(concat,"%s%s",diff,nowdiff);
+  return concat;
 }
 
 void print_edges(FILE *fp,Set *set) {
