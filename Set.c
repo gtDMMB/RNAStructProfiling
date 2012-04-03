@@ -27,6 +27,7 @@ Set* make_Set(char *name) {
   set->h_cutoff = 0;
   set->p_cutoff = 0;
   set->opt = make_options();
+  set->inputnode = NULL;
   set->graph = NULL;
   return set;
 }
@@ -255,6 +256,51 @@ int freqcompare(const void *v1, const void *v2) {
 }
 
 double set_threshold(Set *set, int start) {
+  int *helices,i,sum=0,freq_target,ave = 0,diff,index,dropoff=0,partial=0,total;
+  double frac;
+  //where you start in drop off calc has to cover at least 50% of area
+  double coverage = 50.0;
+  HC **list = set->helices;
+
+  total = set->hc_num;
+  //translate start percentage to actual num of elements
+  freq_target = start*set->opt->NUMSTRUCTS/100;
+  helices = malloc(sizeof(int)*total);
+  for (i = 0; i < total; i++) {
+    helices[i] = list[i]->freq;
+    //printf("helices[%d] = %d\n",i,helices[i]);
+    sum += helices[i];
+  }
+
+  qsort(helices,total,sizeof(int),compare);
+  for (--i; helices[i] > freq_target && i >= 0; i--)
+    partial += helices[i];
+  //if everything above start, return the start
+  if (i < 0)
+    return (double) start;
+  //if stopping at freq_target results in less than 50% coverage, go to at least 50%
+  frac = ((double) partial*100)/((double)sum);
+  if (frac < coverage) {
+    //printf("not up to coverage with %d/%d\n",partial,sum);
+    while (frac < coverage) {
+      partial += helices[i--];
+      frac = ((double) partial*100)/((double)sum);
+    }
+    //printf("now at %d/%d = %.1f at helices[%d] = %d\n",partial,sum,frac,i+1,helices[i+1]);
+  }
+  index = i;
+  for ( ; i > 0; i--) {
+    ave = (helices[i+1]+helices[i-1])/2;
+    diff = ave - helices[i];
+    if (diff > dropoff) {
+      dropoff = diff;
+      index = i;
+    }
+  }
+  return (100*(double) helices[index+1]/(double) set->opt->NUMSTRUCTS);
+}
+
+double set_threshold_old(Set *set, int start) {
   int *helices,i,sum=0,freq_target,ave = 0,*dropoffs,diff,*val,partial=0,total;
   char key[ARRAYSIZE];
   double h, frac;
@@ -360,19 +406,45 @@ void print_all_helices(Set *set) {
    }
  }
 
+void set_num_fhc(Set *set) {
+  int i,marg;
+  double percent;
+  HC *hc;
+  
+  if (set->opt->NUM_FHC > set->hc_num) {
+    printf("Number of requested fhc %d greater than total number of hc %d\n",set->opt->NUM_FHC, set->hc_num);
+    set->opt->NUM_FHC = set->hc_num;
+  }
+  if (set->opt->NUM_FHC > 63) 
+    printf("Warning: requested num fhc %d exceeds limit of 63\n",set->opt->NUM_FHC);
+  for (i = 0; i < set->opt->NUM_FHC; i++) {
+    hc = set->helices[i];
+    marg = hc->freq;
+      if (set->opt->VERBOSE)
+      printf("Featured helix %d: %s with freq %d\n",i+1,hc->maxtrip,marg);
+    hc->isfreq = 1;      
+    hc->binary = 1<<i;
+  }
+  percent = ((double) marg)*100.0/((double)set->opt->NUMSTRUCTS);
+  printf("Setting h to %.1f\n",percent);
+  set->opt->HC_FREQ = percent;
+  set->num_fhc = set->opt->NUM_FHC;
+}
+
 void find_freq(Set *set) {
   int marg,i,total;
   double percent;
   HC *hc;
 
   total = set->hc_num;
+  set->num_fhc = set->hc_num;
   for (i = 0; i < total; i++) {
     hc = set->helices[i];
     marg = hc->freq;
     percent = ((double) marg)*100.0/((double)set->opt->NUMSTRUCTS);
     if (percent >= set->opt->HC_FREQ) {
       if (set->opt->VERBOSE)
-	printf("freq helix %d: %s with freq %d\n",i+1,hc->maxtrip,marg);
+	printf("Featured helix %d: %s with freq %d\n",i+1,hc->maxtrip,marg);
       hc->isfreq = 1;      
       hc->binary = 1<<i;
     }
@@ -381,14 +453,20 @@ void find_freq(Set *set) {
       i = total;
     }
   } 
-    if (set->num_fhc > 63) fprintf(stderr,"number of helices greater than allowed in find_freq()\n");
-    
+  if (set->num_fhc > 63) {
+    //fprintf(stderr,"number of helices greater than allowed in find_freq()\n");
+    set->num_fhc = 63;
+    marg = set->helices[62]->freq;
+    printf("Capping at 63 fhc with freq %d\n",marg);
+    set->opt->HC_FREQ = ((double) marg)*100.0/((double)set->opt->NUMSTRUCTS);
+  }
 }
 
 void make_profiles(Set *set) {
   FILE *fp,*file;
-  int num=0,*id = 0,i,j,k,last = -1, lastfreq = -1,*profile;
-  int numhelix = 0,size=1,tripsize = INIT_SIZE;
+  int num=0,*id = 0,i,j,k,last = -1, lastfreq = -1,*profile,totalhc=0,allhelix=0;
+  int numhelix = 0,size=1,tripsize = INIT_SIZE,allbp=0,fbp=0;
+  double coverage=0,bpcov=0;
   char temp[100],val[ARRAYSIZE],*trips,*name,*prof;
   HASHTBL *halfbrac;
 
@@ -408,12 +486,14 @@ void make_profiles(Set *set) {
     trips[0] = '\0';
   }
   fp = fopen(name,"r");
-  file = fopen("structure.out","w");
-  fprintf(file,"Processing %s\n",name);
   if (fp == NULL) {
     fprintf(stderr, "can't open %s\n",name);
     return;
   }
+  file = fopen("structure.out","w");
+  if (file == NULL)
+    fprintf(stderr,"Error: can't open structure.out\n");
+  fprintf(file,"Processing %s\n",name);
   while (fgets(temp,100,fp) != NULL) {
     if (sscanf(temp,"Structure %d",&num) == 1) {
      if (last == -1) {
@@ -421,41 +501,52 @@ void make_profiles(Set *set) {
        continue;
      }
      prof = process_profile(halfbrac,profile,numhelix,set);
+     //printf("processing %d with profile %s\n",num,prof);
      fprintf(file,"\n\t-> %s\nStructure %d: ",prof,num);
      
      if (set->opt->REP_STRUCT) {
        make_rep_struct(consensus,prof,trips);
      }
+     
      if (!(halfbrac = hashtbl_create(HASHSIZE,NULL))) {
        fprintf(stderr, "ERROR: hashtbl_create() for halfbrac failed");
        exit(EXIT_FAILURE);
      }
      last = 0;
+     coverage += ((double)numhelix/(double)allhelix);
+     bpcov += ((double)fbp/(double)allbp);
      numhelix = 0;
+     allhelix = 0;
      if (set->opt->REP_STRUCT)
        trips[0] = '\0';
-    } else if (sscanf(temp,"%d %d %d",&i,&j,&k) == 3) {
+    } 
+    else if (sscanf(temp,"%d %d %d",&i,&j,&k) == 3) {
       sprintf(val,"%d %d",i,j);
       id = hashtbl_get(bp,val);
       sprintf(val,"%d",*id);
+      totalhc++;
+      allhelix++;
+      allbp+=k;
       id = hashtbl_get(translate_hc,val);
-      if (!id) continue;
+      if (!id) fprintf(stderr,"no valid translation hc exists for %s\n",val);
       if (*id != -1 && *id != last) {
 	fprintf(file,"%d ",*id);
 	if (*id <= set->num_fhc && *id != lastfreq) {
 	  numhelix++;
+	  fbp+=k;
 	  if (numhelix >= ARRAYSIZE*size) 
-	    profile = realloc(profile,ARRAYSIZE*++size);
+	    profile = realloc(profile,sizeof(int)*ARRAYSIZE*++size);
 	  profile[numhelix-1] = *id;
 	  make_brackets(halfbrac,i,j,*id);
 	  lastfreq = *id;
 	}
 	last = *id;
+	//printf("assigning %d to %d %d\n",*id,i,j);
       }
       if (set->opt->REP_STRUCT) {
 	sprintf(val,"%d %d %d ",i,j,k);
 	while (strlen(trips)+strlen(val) > (ARRAYSIZE*tripsize-1))
-	  trips = realloc(trips,++tripsize*ARRAYSIZE);
+	  trips = realloc(trips,sizeof(char)*++tripsize*ARRAYSIZE);
 	strcat(trips,val);
       }
     }
@@ -464,7 +555,9 @@ void make_profiles(Set *set) {
  
   process_profile(halfbrac,profile,numhelix,set);
  //fprintf(file,"Structure %d: %s\n",num,profile);
- 
+  printf("Ave number of HC per structure: %.1f\n",(double)totalhc/(double) set->opt->NUMSTRUCTS);
+  printf("Ave structure coverage by fhc: %.2f\n",coverage/(double)set->opt->NUMSTRUCTS);
+  printf("Ave structure coverage by fbp: %.2f\n",bpcov/(double)set->opt->NUMSTRUCTS);
   free(profile);
   fclose(fp);
   fclose(file);
@@ -482,11 +575,11 @@ char* process_profile(HASHTBL *halfbrac,int *profile,int numhelix,Set *set) {
   dup[0] = '\0';
   for (i = 0; i < numhelix; i++) {
     sprintf(val,"%d ",profile[i]);
-    if (strlen(dup) + strlen(val) >= ARRAYSIZE*size-1)
-      dup = realloc(dup,ARRAYSIZE*++size);
+    if (strlen(dup) + strlen(val) >= ARRAYSIZE*size-1) {
+      dup = realloc(dup,sizeof(char)*ARRAYSIZE*++size);
+    }
     dup = strcat(dup,val);
   }
-
   for (i = 0; i < set->prof_num; i++) {
     if (!strcmp(profiles[i]->profile,dup)) {
       profiles[i]->freq++;
@@ -496,7 +589,7 @@ char* process_profile(HASHTBL *halfbrac,int *profile,int numhelix,Set *set) {
   if (i == set->prof_num) {
     if (i >= ARRAYSIZE*set->prof_size) {
       set->prof_size++;
-      profiles = realloc(profiles,ARRAYSIZE*set->prof_size);
+      profiles = realloc(profiles,sizeof(Profile*)*ARRAYSIZE*set->prof_size);
       set->profiles = profiles;
     }
     profiles[i] = create_profile(dup);
@@ -603,39 +696,22 @@ int profsort(const void *v1, const void *v2) {
 }
 
 double set_p_threshold(Set *set, int start) {
-  int *helices,i,sum=0,freq_target,ave = 0,*dropoffs,diff,*val,partial=0,total;
-  char key[ARRAYSIZE];
-  double h, frac;
+int *helices,i,sum=0,freq_target,ave = 0,diff,index,dropoff=0,partial=0,total;
+  double frac;
   //where you start in drop off calc has to cover at least 50% of area
   double coverage = 50.0;
-  HASHTBL *diff_to_key;
   Profile **list = set->profiles;
 
   total = set->prof_num;
-
-  if (!(diff_to_key = hashtbl_create(HASHSIZE,NULL))) {
-    fprintf(stderr, "ERROR: hashtbl_create() for diff_to_key failed");
-    exit(EXIT_FAILURE);
-  }
-
   //translate start percentage to actual num of elements
   freq_target = start*set->opt->NUMSTRUCTS/100;
-
   helices = malloc(sizeof(int)*total);
-  //initialize top three dropoff locations
-  dropoffs = malloc(sizeof(int)*3);
-  for (i = 0; i<3; dropoffs[i++] = 0) ;
-  i = 0;
   for (i = 0; i < total; i++) {
     helices[i] = list[i]->freq;
     //printf("helices[%d] = %d\n",i,helices[i]);
     sum += helices[i];
   }
-
   qsort(helices,total,sizeof(int),compare);
-  //printf("freq target is %d with sum %d last num %d at %d\n",freq_target,sum,helices[i-1],i);
-  //for (i = 0; i < total; i++)
-  //printf("helices[%d] is %d\n",i,helices[i]);
   for (--i; helices[i] > freq_target && i >= 0; i--)
     partial += helices[i];
   //if everything above start, return the start
@@ -652,50 +728,33 @@ double set_p_threshold(Set *set, int start) {
     }
     //printf("now at %d/%d = %.1f at helices[%d] = %d\n",partial,sum,frac,i+1,helices[i+1]);
   }
-  //create entry for 0, in case no drop off exists
-  sprintf(key,"%d",0);
-  val = malloc(sizeof(int));
-  *val = helices[i];
-  hashtbl_insert(diff_to_key,key,val);
-
+  index = i;
   for ( ; i > 0; i--) {
     ave = (helices[i+1]+helices[i-1])/2;
     diff = ave - helices[i];
     //printf("ave is %d and diff is %d for %d\n",ave,diff,i);
-    if (diff > dropoffs[0]) {
-      //printf("bumping off %d for %d\n",dropoffs[0],diff);
-      dropoffs[0] = diff;
-      qsort(dropoffs,3,sizeof(int),compare);
-      sprintf(key,"%d",diff);
-      val = malloc(sizeof(int));
-      *val = helices[i];
-      hashtbl_insert(diff_to_key,key,val);
-      //printf("inserting %s with %d\n",key,*val);
+    if (diff > dropoff) {
+      //printf("bumping off %d for %d\n",dropoff,diff);
+      dropoff = diff;
+      index = i;
     }
   }
-  printf("Possible cutoffs: ");
-  for (i = 0; i<3; i++) {
-    sprintf(key,"%d",dropoffs[i]);
-    val = hashtbl_get(diff_to_key,key);
-    if (val) {
-      h = ((double)(*val+1)*100)/(double)set->opt->NUMSTRUCTS;
-      printf("%.1f ",h);
-    }
-  }
-  printf("\n");
-  hashtbl_destroy(diff_to_key);
-  return h;
+  return (100*(double) helices[index+1]/(double) set->opt->NUMSTRUCTS);
 }
 
 void select_profiles(Set *set) {
-  int i,coverage=0;
+  int i,coverage=0,cov15=0,stop;
   double percent;
   Profile *prof;
 
+  //in case we select everything
+  set->num_sprof = set->prof_num;
   for (i = 0; i < set->prof_num; i++) {
     prof = set->profiles[i];
     percent = ((double) prof->freq)*100.0 / ((double)set->opt->NUMSTRUCTS);
     //printf("%s has percent %.1f\n",node->data,percent);
+    if (i == 15)
+      cov15 = coverage;
     if (percent < set->opt->PROF_FREQ) {
       set->num_sprof = i;
       i = set->prof_num;
@@ -704,10 +763,163 @@ void select_profiles(Set *set) {
       prof->selected = 1;
       coverage += prof->freq;
       if (set->opt->VERBOSE)
-	printf("Freq profile %swith freq %d\n",prof->profile,prof->freq);
+	printf("Selected profile %swith freq %d\n",prof->profile,prof->freq);
+    }
+  }
+  i = set->num_sprof;
+	if (15 < set->prof_num)
+	stop = 15;
+	else
+	stop = set->prof_num;
+  if (i < 15) {
+    for (cov15 = coverage ; i < stop; i++) {
+      //printf("cov15 now %d\n",cov15);
+      cov15 += set->profiles[i]->freq;
     }
   }
   printf("Number of structures with direct representation in graph: %d/%d\n",coverage,set->opt->NUMSTRUCTS);
+  printf("Number of structures represented by top %d profiles: %d/%d\n",stop,cov15,set->opt->NUMSTRUCTS);
+}
+
+void process_one_input(Set *set) {
+  HASHTBL *halfbrac;
+  FILE *file;
+  char temp[100],tmp[ARRAYSIZE],*profile=NULL,*fullprofile=NULL,*diff=NULL,*native,*diffn=NULL;
+  int i,j,k,*id,last=0,*prof,hc_num;
+  int numhelix = 0,fullnum = 0,natnum = 0;
+  int size = INIT_SIZE;
+  Profile *natprof;
+  node *inode;
+  
+  if (!(halfbrac = hashtbl_create(HASHSIZE,NULL))) {
+    fprintf(stderr, "ERROR: hashtbl_create() for halfbrac failed");
+    exit(EXIT_FAILURE);
+  }
+  prof = malloc(sizeof(int)*ARRAYSIZE*size);
+  if (!(file = fopen(set->opt->INPUT,"r")))
+    fprintf(stderr,"Cannot open %s\n",set->opt->INPUT);
+  hc_num = set->hc_num;
+  while (fgets(temp,100,file)) {
+    //    if (sscanf(temp,"Structure %d (%d)",&i,&prob) == 2) 
+    if (sscanf(temp,"%d %d %d",&i,&j,&k) == 3) {
+      sprintf(tmp,"%d %d",i,j);
+      id = hashtbl_get(bp,tmp);
+      if (!id) {
+	id = process_native(set,i,j,k);
+      } else {
+	sprintf(tmp,"%d",*id);
+	id = hashtbl_get(translate_hc,tmp);
+      }
+      printf("found %d for %d %d %d\n",*id,i,j,k);
+      if (*id != last) {
+	if (natnum >= ARRAYSIZE*size) 
+	  prof = realloc(prof,sizeof(int)*ARRAYSIZE*++size);
+	prof[natnum++] = *id;
+	last = *id;
+	make_brackets(halfbrac,i,j,*id);
+      }
+      else if (set->opt->VERBOSE)
+	printf("helix %d %d %d is duplicate with id %d: process_input()\n",i,j,k,*id);
+    }
+  }
+  set->hc_num = hc_num;
+  qsort(prof,natnum,sizeof(int),compare);
+
+  native = malloc(sizeof(char)*ARRAYSIZE*++size);
+  native[0] = '\0';
+  numhelix = natnum;
+  fullnum = natnum;
+  for (i = 0; i<natnum; i++) {
+    if (prof[i] > set->num_fhc && !profile) {
+      profile = mystrdup(native);
+      numhelix = i;
+      native[0] = '\0';
+    }
+    if (prof[i] > set->hc_num && !diffn) {
+      diffn = mystrdup(native);
+      fullnum = i;
+      native[0]='\0';
+    }
+    sprintf(tmp,"%d ",prof[i]);
+    if (strlen(tmp)+strlen(native)+1 > ARRAYSIZE*size)
+      native = realloc(native,sizeof(char)*ARRAYSIZE*++size);
+    native = strcat(native,tmp);
+  }
+  diff = mystrdup(native);
+  if (!profile) {
+    profile = malloc(sizeof(char));
+    profile = "";
+  }
+  if (!diffn) {
+    diffn = diff;
+    diff = "";
+  }
+
+  //printf("native %s%s%s(%d), fullprofile %s%s(%d), profile %s(%d)\n",profile,diffn,diff,natnum,profile,diffn,fullnum,profile,numhelix);
+  
+  /*making data structure*/
+  while (strlen(profile)+strlen(diffn)+strlen(diff)+1 > ARRAYSIZE*size)
+    native = realloc(native,sizeof(char)*ARRAYSIZE*++size);
+  sprintf(native,"%s%s%s",profile,diffn,diff);
+  fullprofile = malloc(strlen(native));
+  sprintf(fullprofile,"%s%s",profile,diffn);
+
+  //printf("now native %s, full profile %s\n",native,fullprofile);
+  natprof = create_profile(native);
+  make_bracket_rep(halfbrac,natprof);
+  hashtbl_destroy(halfbrac);
+
+  set->inputnode = createNode(native);
+  set->inputnode->bracket = natprof->bracket;
+
+  if (fullnum != natnum) {
+    //printf("creating input node %s with diff %s\n",fullprofile,diff);
+    inode = createNode(fullprofile);
+    inode->neighbors = malloc(sizeof(node*)*ARRAYSIZE);
+    inode->neighbors[0] = set->inputnode;
+    inode->diff = malloc(sizeof(char*)*ARRAYSIZE);
+    inode->diff[0] = diff;
+    inode->numNeighbors++;
+    set->inputnode = inode;
+  }
+  if (numhelix != fullnum) {
+    //printf("creating input node %s with diffn %s\n",profile,diffn);
+    inode = createNode(profile);
+    inode->neighbors = malloc(sizeof(node*)*ARRAYSIZE);
+    inode->neighbors[0] = set->inputnode;
+    inode->diff = malloc(sizeof(char*)*ARRAYSIZE);
+    inode->diff[0] = diffn;
+    inode->numNeighbors++;
+    set->inputnode = inode;
+  }
+}
+
+//processes native helices if necessary; called by process_input
+//returns id for i,j,k helix
+int* process_native(Set *set,int i, int j, int k) {
+  int *id = NULL,l;
+  char *tmp,key[ARRAYSIZE];
+
+  tmp = malloc(sizeof(char)*ARRAYSIZE);
+  for (l=1; l < k; l++) {
+    sprintf(tmp,"%d %d",i+l,j-l);
+    id = hashtbl_get(bp,tmp);
+    if (id) {
+      sprintf(tmp,"%d",*id);
+      id = hashtbl_get(translate_hc,tmp);
+      for (l-- ; l >= 0; l--) {
+	sprintf(tmp,"%d %d",i+l,j+l);
+	hashtbl_insert(bp,tmp,id);
+      }
+      return id;
+    }
+  }
+
+  id = malloc(sizeof(int));
+  *id = ++(set->hc_num);
+  sprintf(key,"%d %d",i,j);
+  hashtbl_insert(bp,key,id);
+  return id;
 }
 
 void find_consensus(Set *set) {
@@ -720,9 +932,8 @@ void find_consensus(Set *set) {
     exit(EXIT_FAILURE);
   }
 
-  node = hashtbl_getkeys(consensus);
   //cycle thru all profiles, either calc consensus for selected or destroying
-  for (node = node->next; node; node = node->next) {
+  for (node = hashtbl_getkeys(consensus); node; node = node->next) {
     freq = 0;
     for (i = 0; i < set->num_sprof; i++) 
       if (!strcmp(set->profiles[i]->profile,node->data))
@@ -733,7 +944,7 @@ void find_consensus(Set *set) {
 	fprintf(stderr, "ij not found in find_consensus()\n");
       for (bpnode = hashtbl_getkeys(ij); bpnode; bpnode = bpnode->next) {
 	bpfreq = hashtbl_get(ij,bpnode->data);
-	if (*bpfreq*100/freq < 50)
+	if (*bpfreq*100/freq <= 50)
 	  hashtbl_remove(ij,bpnode->data);
       }
     } else {
@@ -747,7 +958,7 @@ void find_consensus(Set *set) {
 
 //in ct format
 int print_consensus(Set *set) {
-  int k=0,m,seqlen;
+  int l,k=0,m,seqlen;
   char outfile[ARRAYSIZE],key[ARRAYSIZE],*pair,*i,*j,*blank = " ";
   KEY *node,*bpnode;
   HASHTBL *bpairs,*temp;
@@ -756,7 +967,8 @@ int print_consensus(Set *set) {
   seqlen = strlen(set->seq);
 
   //foreach profile
-  for (node = hashtbl_getkeys(consensus); node; node = node->next) {
+  //for (node = hashtbl_getkeys(consensus); node; node = node->next) {
+  for (l = 0; l < set->num_sprof; l++) {
     if (!(temp = hashtbl_create(HASHSIZE,NULL))) {
       fprintf(stderr, "ERROR: hashtbl_create() for temp failed");
       exit(EXIT_FAILURE);
@@ -764,9 +976,10 @@ int print_consensus(Set *set) {
     sprintf(outfile,"Structure_%d.ct",++k);
     fp = fopen(outfile,"w");
 
-    //fprintf(fp,"Filename: %s\n",set->seqfile);
+    fprintf(fp,"Profile: %s\n",set->profiles[l]->profile);
+    fprintf(fp,"Freq: %d\n",set->profiles[l]->freq);
     fprintf(fp,"%d dG = n/a\n",seqlen);
-    bpairs = hashtbl_get(consensus,node->data);
+    bpairs = hashtbl_get(consensus,set->profiles[l]->profile);
     if (!bpairs)
       fprintf(stderr,"no bpairs found\n");
     for (bpnode = hashtbl_getkeys(bpairs); bpnode; bpnode = bpnode->next) {

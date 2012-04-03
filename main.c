@@ -8,7 +8,7 @@
 
 //input first the fasta file, then the sample_1000.out file run on the fasta, then options
 int main(int argc, char *argv[]) {
-  int i,COVERAGE = 50;
+  int i;
   HASHTBL *deleteHash;
   FILE *fp;
   Set *set;
@@ -43,6 +43,12 @@ int main(int argc, char *argv[]) {
 	i++;
       }
     }
+    else if (!strcmp(argv[i],"-f")) {
+      if ((i + 1 <= argc - 1) && sscanf(argv[i+1],"%d",&(opt->NUM_FHC))) {
+	opt->NUM_FHC = atoi(argv[i+1]);
+	i++;
+      }
+    }
     else if (!strcmp(argv[i],"-l")) {
       if ((i + 1 <= argc - 1) && sscanf(argv[i+1],"%d",&(opt->MIN_HEL_LEN))) {
 	opt->MIN_HEL_LEN = atoi(argv[i+1]);
@@ -73,6 +79,12 @@ int main(int argc, char *argv[]) {
 	i++;
       }
     }
+    else if (!strcmp(argv[i],"-c")) {
+      if (i + 1 <= argc - 1) {
+	opt->CYCLES = argv[i+1];
+	i++;
+      }
+    }
     else if (!strcmp(argv[i],"-v"))
       opt->VERBOSE = 1;
     else if (!strcmp(argv[i],"-g"))
@@ -87,6 +99,7 @@ int main(int argc, char *argv[]) {
 
   if (set->opt->HC_FREQ==0) 
     set->opt->HC_FREQ = set_threshold(set,H_START);
+    
   if (set->opt->VERBOSE) {
     printf("Threshold to find frequent helices: %.1f\%\n",set->opt->HC_FREQ);
     printf("Number of structures processed: %d\n",set->opt->NUMSTRUCTS);
@@ -95,7 +108,10 @@ int main(int argc, char *argv[]) {
 
   if (set->opt->VERBOSE)
     print_all_helices(set);
-  find_freq(set);
+  if (set->opt->NUM_FHC)
+    set_num_fhc(set);
+  else
+    find_freq(set);
   printf("Total number of selected helices: %d\n",set->num_fhc);
   make_profiles(set);
   printf("Total number of profiles: %d\n",set->prof_num);
@@ -109,6 +125,8 @@ int main(int argc, char *argv[]) {
   select_profiles(set);
   printf("Total number of selected profiles: %d\n",set->num_sprof);
 
+  if (set->opt->INPUT)
+    process_one_input(set);
   if (set->opt->REP_STRUCT) {
     find_consensus(set);
     print_consensus(set);
@@ -118,6 +136,8 @@ int main(int argc, char *argv[]) {
     fp = fopen(set->opt->OUTPUT,"w");
     init_graph(fp,set);
     initialize(set);
+    if (set->opt->INPUT)
+      print_input(fp,set);
     find_LCAs(fp,set);
     calc_gfreq(fp,set);
     //printGraph();
@@ -128,7 +148,7 @@ int main(int argc, char *argv[]) {
     print_edges(fp,set);
     fputs("}",fp);
     fclose(fp);
+    hashtbl_destroy(deleteHash);
   }
-  hashtbl_destroy(deleteHash);
   return 0;
 }

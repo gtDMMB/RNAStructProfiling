@@ -50,9 +50,11 @@ typedef struct options {
   char *NATIVE;
   int VERBOSE;
   int MIN_HEL_LEN;
+  int NUM_FHC;
   double HC_FREQ;
   double PROF_FREQ;
   int NUMSTRUCTS;
+  int CYCLES;
   int GRAPH;
   int REP_STRUCT;
 } Options;
