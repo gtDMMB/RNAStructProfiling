@@ -225,7 +225,7 @@ void addHC(Set *set, HC *hc, int idcount) {
 }
 
 void reorder_helices(Set *set) {
-  int i,*new,total;
+  int i,*new,total,cov50=0,sum=0,target=0;
   char *old;
   HC **helices = set->helices;
 
@@ -242,7 +242,12 @@ void reorder_helices(Set *set) {
     *new = i+1;
     hashtbl_insert(translate_hc,old,new);
     sprintf(old,"%d",i+1);
+    sum += helices[i]->freq;
   }
+  target = set->opt->COVERAGE*sum;
+  for (i = 0; cov50 < target; i++)
+    cov50 += helices[i]->freq;
+  printf("%.2f coverage of helices after first %d HC\n",set->opt->COVERAGE,i);
 }
 
 //will sort to have descending freq
@@ -259,7 +264,7 @@ double set_threshold(Set *set, int start) {
   int *helices,i,sum=0,freq_target,ave = 0,diff,index,dropoff=0,partial=0,total;
   double frac;
   //where you start in drop off calc has to cover at least 50% of area
-  double coverage = 50.0;
+  //double coverage = 50.0;
   HC **list = set->helices;
 
   total = set->hc_num;
@@ -275,16 +280,18 @@ double set_threshold(Set *set, int start) {
   qsort(helices,total,sizeof(int),compare);
   for (--i; helices[i] > freq_target && i >= 0; i--)
     partial += helices[i];
+  //go 1 lower, so thresholds all under start
+  partial += helices[i--];
   //if everything above start, return the start
   if (i < 0)
     return (double) start;
   //if stopping at freq_target results in less than 50% coverage, go to at least 50%
-  frac = ((double) partial*100)/((double)sum);
-  if (frac < coverage) {
+  frac = ((double) partial)/((double)sum);
+  if (frac < set->opt->COVERAGE) {
     //printf("not up to coverage with %d/%d\n",partial,sum);
-    while (frac < coverage) {
+    while (frac < set->opt->COVERAGE) {
       partial += helices[i--];
-      frac = ((double) partial*100)/((double)sum);
+      frac = ((double) partial)/((double)sum);
     }
     //printf("now at %d/%d = %.1f at helices[%d] = %d\n",partial,sum,frac,i+1,helices[i+1]);
   }
@@ -406,10 +413,9 @@ void print_all_helices(Set *set) {
    }
  }
 
-void set_num_fhc(Set *set) {
-  int i,marg;
+double set_num_fhc(Set *set) {
+  int marg;
   double percent;
-  HC *hc;
   
   if (set->opt->NUM_FHC > set->hc_num) {
     printf("Number of requested fhc %d greater than total number of hc %d\n",set->opt->NUM_FHC, set->hc_num);
@@ -417,20 +423,37 @@ void set_num_fhc(Set *set) {
   }
   if (set->opt->NUM_FHC > 63) 
     printf("Warning: requested num fhc %d exceeds limit of 63\n",set->opt->NUM_FHC);
+
+  marg = set->helices[set->opt->NUM_FHC-1]->freq;
+  percent = ((double) marg)*100.0/((double)set->opt->NUMSTRUCTS);
+  return percent;
+
+  /*
+  for (k = set->opt->NUM_FHC; set->helices[set->opt->NUM_FHC-1]->freq == set->helices[k]->freq; k++) 
+    if (k == set->hc_num -1)
+      break;
+  if (k != set->opt->NUM_FHC) {
+    if (set->opt->VERBOSE)
+      printf("Increasing number of fhc to %d\n",k);
+    set->opt->NUM_FHC = k;
+  }
   for (i = 0; i < set->opt->NUM_FHC; i++) {
     hc = set->helices[i];
     marg = hc->freq;
-      if (set->opt->VERBOSE)
+    if (set->opt->VERBOSE)
       printf("Featured helix %d: %s with freq %d\n",i+1,hc->maxtrip,marg);
     hc->isfreq = 1;      
     hc->binary = 1<<i;
   }
+  
   percent = ((double) marg)*100.0/((double)set->opt->NUMSTRUCTS);
   printf("Setting h to %.1f\n",percent);
   set->opt->HC_FREQ = percent;
   set->num_fhc = set->opt->NUM_FHC;
+  */
 }
 
+//assumes threshold found, now setting actual helices
 void find_freq(Set *set) {
   int marg,i,total;
   double percent;
@@ -513,6 +536,7 @@ void make_profiles(Set *set) {
        exit(EXIT_FAILURE);
      }
      last = 0;
+     lastfreq = 0;
      coverage += ((double)numhelix/(double)allhelix);
      bpcov += ((double)fbp/(double)allbp);
      numhelix = 0;
@@ -695,11 +719,32 @@ int profsort(const void *v1, const void *v2) {
   return (p2->freq - p1->freq);
 }
 
+double set_num_sprof(Set *set) {
+  int marg;
+
+  if (set->opt->NUM_SPROF > set->prof_num) {
+    printf("Number of requested sprof %d greater than total number of hc %d\n",set->opt->NUM_SPROF, set->prof_num);
+    set->opt->NUM_SPROF = set->prof_num;
+  }
+  /*
+  for (k = set->opt->NUM_SPROF; set->profiles[set->opt->NUM_SPROF-1]->freq == set->profiles[k]->freq; k++) 
+    if (k == set->prof_num -1)
+      break;
+  if (k != set->opt->NUM_SPROF) {
+    if (set->opt->VERBOSE)
+      printf("Increasing number of sprof to %d\n",k);
+    set->opt->NUM_SPROF = k;
+  }
+  */
+  marg = set->profiles[set->opt->NUM_SPROF-1]->freq;
+  return (100*(double) marg/(double) set->opt->NUMSTRUCTS);
+}
+
 double set_p_threshold(Set *set, int start) {
 int *helices,i,sum=0,freq_target,ave = 0,diff,index,dropoff=0,partial=0,total;
   double frac;
   //where you start in drop off calc has to cover at least 50% of area
-  double coverage = 50.0;
+  //double coverage = 50.0;
   Profile **list = set->profiles;
 
   total = set->prof_num;
@@ -719,12 +764,12 @@ int *helices,i,sum=0,freq_target,ave = 0,diff,index,dropoff=0,partial=0,total;
     return (double) start;
 
   //if stopping at freq_target results in less than 50% coverage, go to at least 50%
-  frac = ((double) partial*100)/((double)sum);
-  if (frac < coverage) {
+  frac = ((double) partial)/((double)sum);
+  if (frac < set->opt->COVERAGE) {
     //printf("not up to coverage with %d/%d\n",partial,sum);
-    while (frac < coverage) {
+    while (frac < set->opt->COVERAGE) {
       partial += helices[i--];
-      frac = ((double) partial*100)/((double)sum);
+      frac = ((double) partial)/((double)sum);
     }
     //printf("now at %d/%d = %.1f at helices[%d] = %d\n",partial,sum,frac,i+1,helices[i+1]);
   }
@@ -743,7 +788,7 @@ int *helices,i,sum=0,freq_target,ave = 0,diff,index,dropoff=0,partial=0,total;
 }
 
 void select_profiles(Set *set) {
-  int i,coverage=0,cov15=0,stop;
+  int i,coverage=0,cov15=0,stop,cov50=0;
   double percent;
   Profile *prof;
 
@@ -755,6 +800,8 @@ void select_profiles(Set *set) {
     //printf("%s has percent %.1f\n",node->data,percent);
     if (i == 15)
       cov15 = coverage;
+    if (coverage < set->opt->COVERAGE*set->opt->NUMSTRUCTS) 
+      cov50 = i;
     if (percent < set->opt->PROF_FREQ) {
       set->num_sprof = i;
       i = set->prof_num;
@@ -767,18 +814,19 @@ void select_profiles(Set *set) {
     }
   }
   i = set->num_sprof;
-	if (15 < set->prof_num)
-	stop = 15;
-	else
-	stop = set->prof_num;
+  if (15 < set->prof_num)
+    stop = 15;
+  else
+    stop = set->prof_num;
   if (i < 15) {
-    for (cov15 = coverage ; i < stop; i++) {
+    for (cov15 = coverage; i < stop; i++) {
       //printf("cov15 now %d\n",cov15);
       cov15 += set->profiles[i]->freq;
     }
   }
+  printf("Number of structures needed to get %.2f coverage: %d\n",set->opt->COVERAGE, cov50+1);
   printf("Number of structures with direct representation in graph: %d/%d\n",coverage,set->opt->NUMSTRUCTS);
-  printf("Number of structures represented by top %d profiles: %d/%d\n",stop,cov15,set->opt->NUMSTRUCTS);
+  //printf("Number of structures represented by top %d profiles: %d/%d\n",stop,cov15,set->opt->NUMSTRUCTS);
 }
 
 void process_one_input(Set *set) {

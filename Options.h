@@ -51,8 +51,10 @@ typedef struct options {
   int VERBOSE;
   int MIN_HEL_LEN;
   int NUM_FHC;
+  int NUM_SPROF;
   double HC_FREQ;
   double PROF_FREQ;
+  double COVERAGE;
   int NUMSTRUCTS;
   int CYCLES;
   int GRAPH;

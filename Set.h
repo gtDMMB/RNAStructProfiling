@@ -8,9 +8,9 @@
 #include "Options.h"
 
 //default value that looking for h dropoff starts at (in percent)
-#define H_START 10
+#define H_START 100
 //default value that looking for p dropoff starts at (in percent)
-#define P_START 5
+#define P_START 10
 #define HASHSIZE 31
 #define ARRAYSIZE 20
 #define INIT_SIZE 2
@@ -22,15 +22,17 @@ typedef struct {
   int hc_num;
   int num_fhc;
   HC **helices;
-  HC **freqhelices;  //?
+  //HC **freqhelices;
   int prof_size;
   int prof_num;
   int num_sprof;
   Profile **profiles;
-  Profile **freqprof;  //?
-  double h_cutoff;     //? in options already
+  //Profile **freqprof;  //?
+  double h_cutoff;     //? in options already  set->inputprof = NULL;
+
   double p_cutoff;     //? in options already
   Options *opt;
+  node *inputnode;
   node *graph;
 } Set;
 
@@ -45,6 +47,7 @@ int freqcompare(const void *v1, const void *v2);
 double set_threshold(Set *set, int start);
 int compare(const void *v1, const void *v2);
 void print_all_helices(Set *set);
+double set_num_fhc(Set *set);
 void find_freq(Set *set);
 void make_profiles(Set *set);
 char* process_profile(HASHTBL *halfbrac,int *profile,int numhelix,Set *set);
@@ -53,8 +56,11 @@ void make_brackets(HASHTBL *brac, int i, int j, int id);
 void make_rep_struct(HASHTBL *consensus,char *profile, char* trips);
 void print_profiles(Set *set);
 int profsort(const void *v1, const void *v2);
+double set_num_sprof(Set *set);
 double set_p_threshold(Set *set, int start);
 void select_profiles(Set *set);
+void process_one_input(Set *set);
+int* process_native(Set *set,int i, int j, int k);
 void find_consensus(Set *set);
 int print_consensus(Set *set);
 void free_Set(Set *set);
