@@ -15,9 +15,12 @@ Options* make_options() {
   opt->PROF_FREQ = 0;
   opt->COVERAGE = 0.5;
   opt->NUMSTRUCTS = 0;
+  opt->PNOISE = 5;
   opt->CYCLES = 10;
   opt->GRAPH = 1;
   opt->REP_STRUCT = 0;
+  opt->TOPDOWN = 0;
+  opt->ALTTHRESH = 1;
   return opt;
 }
 

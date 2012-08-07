@@ -6,11 +6,12 @@
 #include "hashtbl.h"
 #include "graph.h"
 #include "Options.h"
+#include "Profnode.h"
 
 //default value that looking for h dropoff starts at (in percent)
-#define H_START 100
+#define H_START 10
 //default value that looking for p dropoff starts at (in percent)
-#define P_START 10
+#define P_START 5
 #define HASHSIZE 31
 #define ARRAYSIZE 20
 #define INIT_SIZE 2
@@ -20,13 +21,16 @@ typedef struct {
   char *structfile;
   int hc_size;
   int hc_num;
+  int helsum;
   int num_fhc;
   HC **helices;
-  //HC **freqhelices;
   int prof_size;
   int prof_num;
   int num_sprof;
   Profile **profiles;
+  Profnode ***proftree;
+  int *treeindex;
+  int treesize;
   //Profile **freqprof;  //?
   double h_cutoff;     //? in options already  set->inputprof = NULL;
 
@@ -46,9 +50,21 @@ void reorder_helices(Set *set);
 int freqcompare(const void *v1, const void *v2);
 double set_threshold(Set *set, int start);
 int compare(const void *v1, const void *v2);
-void print_all_helices(Set *set);
+int print_all_helices(Set *set);
 double set_num_fhc(Set *set);
 void find_freq(Set *set);
+int top_down_h(Set *set,int minh);
+int find_kink(double *opt, int j);
+void translate(Profile *prof);
+double split(Set *set, int index);
+int nodecompare(const void *v1, const void *v2);
+int split_one(Set *set,Profnode *node,int index);
+int check_hc(char *prof, int index);
+char* convert(int *array,int length);
+int top_down_p(Set *set,int h);
+int find_kink_p(Profnode **profs,int start, int stop);
+void print_topdown_prof(Set *set, int h, int p);
+
 void make_profiles(Set *set);
 char* process_profile(HASHTBL *halfbrac,int *profile,int numhelix,Set *set);
 void make_bracket_rep(HASHTBL *brac,Profile *prof);

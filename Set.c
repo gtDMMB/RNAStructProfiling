@@ -6,7 +6,7 @@
 #include "Options.h"
 #include "helix_class.h"
 #include "Profile.h"
-//#include "Node.h"
+#include "Profnode.h"
 
 static HASHTBL *bp;
 static HASHTBL *translate_hc;
@@ -18,12 +18,16 @@ Set* make_Set(char *name) {
   set->structfile = name;
   set->hc_size = 5;
   set->hc_num = 0;
+  set->helsum = 0;
   set->num_fhc = 0;
   set->helices = malloc(sizeof(HC*)*ARRAYSIZE*5);
   set->prof_size = 5;
   set->prof_num = 0;
   set->num_sprof = 0;
   set->profiles = malloc(sizeof(Profile*)*ARRAYSIZE*5);
+  set->proftree = malloc(sizeof(Profnode**)*ARRAYSIZE*2);
+  set->treeindex = malloc(sizeof(int)*ARRAYSIZE*2);
+  set->treesize = 2;
   set->h_cutoff = 0;
   set->p_cutoff = 0;
   set->opt = make_options();
@@ -72,10 +76,10 @@ void input_seq(Set *set,char *seqfile) {
 
 void process_structs(Set *set) {
   FILE *fp;
-  int i,j,k,*helixid,idcount=1,*lg,last = 0, toosmall = 0;
+  int i,j,k,*helixid,idcount=1,*lg,last = 0, toosmall = 0,numhelix=0,*profile=NULL,size=1;
   double *trip;
   char tmp[100],*key,dbl[ARRAYSIZE],*max;
-  HASHTBL *extra,*avetrip;
+  HASHTBL *halfbrac,*extra,*avetrip;
   HC *hc;
 
   fp = fopen(set->structfile,"r");
@@ -92,6 +96,10 @@ void process_structs(Set *set) {
   }
   if (!(extra = hashtbl_create(HASHSIZE,NULL))) {
     fprintf(stderr, "ERROR: hashtbl_create() for extra failed");
+    exit(EXIT_FAILURE);
+  }
+  if (!(halfbrac = hashtbl_create(HASHSIZE,NULL))) {
+    fprintf(stderr, "ERROR: hashtbl_create() for halfbrac failed");
     exit(EXIT_FAILURE);
   }
   key = malloc(sizeof(char)*ARRAYSIZE);
@@ -117,7 +125,12 @@ void process_structs(Set *set) {
 	trip[2] = k;
 	sprintf(key,"%d",idcount);
 	hashtbl_insert(avetrip,key,trip);
-
+	if (set->opt->TOPDOWN) {
+	  if (numhelix >= ARRAYSIZE*size) 
+	    profile = realloc(profile,sizeof(int)*ARRAYSIZE*++size);
+	  profile[numhelix++]=idcount;
+	  make_brackets(halfbrac,i,j,idcount);
+	}
 	last = idcount++;
       }
       else {
@@ -126,6 +139,12 @@ void process_structs(Set *set) {
 	if (last != *helixid) {
 	  hc = set->helices[*helixid-1];
 	  hc->freq++;
+	  if (set->opt->TOPDOWN) {
+	    if (numhelix >= ARRAYSIZE*size) 
+	      profile = realloc(profile,sizeof(int)*ARRAYSIZE*++size);
+	    profile[numhelix++]=*helixid;
+	    make_brackets(halfbrac,i,j,*helixid);
+	  }
 	} else {
 	  if ((lg = hashtbl_get(extra,key)))
 	    ++*lg;
@@ -146,9 +165,23 @@ void process_structs(Set *set) {
 	last = *helixid;
       }
     }
-    else if (sscanf(tmp,"Structure %d",&i) == 1)
+    else if (sscanf(tmp,"Structure %d",&i) == 1) {
+      if (set->opt->TOPDOWN) {
+	if (profile) {
+	  process_profile(halfbrac,profile,numhelix,set);
+	  if (!(halfbrac = hashtbl_create(HASHSIZE,NULL))) {
+	    fprintf(stderr, "ERROR: hashtbl_create() for halfbrac failed");
+	    exit(EXIT_FAILURE);
+	  }
+	} else
+	  profile = malloc(sizeof(int)*ARRAYSIZE);
+	numhelix = 0;
+      }
       set->opt->NUMSTRUCTS++;
+    }
   }
+  if (set->opt->TOPDOWN) 
+    process_profile(halfbrac,profile,numhelix,set);
   for (i = 1; i < idcount; i++) {
     j = set->helices[i-1]->freq;
     sprintf(key,"%d",i);
@@ -159,7 +192,7 @@ void process_structs(Set *set) {
     trip = hashtbl_get(avetrip,key);
     sprintf(key,"%.1f %.1f %.1f", trip[0]/k,trip[1]/k,trip[2]/k);
     hc = set->helices[i-1];
-    hc->avetrip = key;
+    hc->avetrip = mystrdup(key);
   }
   if (fclose(fp))
     fprintf(stderr, "File %s not closed successfully\n",set->structfile);
@@ -225,7 +258,7 @@ void addHC(Set *set, HC *hc, int idcount) {
 }
 
 void reorder_helices(Set *set) {
-  int i,*new,total,cov50=0,sum=0,target=0;
+  int i,*new,total,sum=0;
   char *old;
   HC **helices = set->helices;
 
@@ -244,10 +277,7 @@ void reorder_helices(Set *set) {
     sprintf(old,"%d",i+1);
     sum += helices[i]->freq;
   }
-  target = set->opt->COVERAGE*sum;
-  for (i = 0; cov50 < target; i++)
-    cov50 += helices[i]->freq;
-  printf("%.2f coverage of helices after first %d HC\n",set->opt->COVERAGE,i);
+  set->helsum = sum;
 }
 
 //will sort to have descending freq
@@ -261,7 +291,7 @@ int freqcompare(const void *v1, const void *v2) {
 }
 
 double set_threshold(Set *set, int start) {
-  int *helices,i,sum=0,freq_target,ave = 0,diff,index,dropoff=0,partial=0,total;
+  int i=0,freq_target,ave = 0,diff,index,dropoff=0,partial=0,total;
   double frac;
   //where you start in drop off calc has to cover at least 50% of area
   //double coverage = 50.0;
@@ -270,6 +300,7 @@ double set_threshold(Set *set, int start) {
   total = set->hc_num;
   //translate start percentage to actual num of elements
   freq_target = start*set->opt->NUMSTRUCTS/100;
+  /*
   helices = malloc(sizeof(int)*total);
   for (i = 0; i < total; i++) {
     helices[i] = list[i]->freq;
@@ -278,33 +309,41 @@ double set_threshold(Set *set, int start) {
   }
 
   qsort(helices,total,sizeof(int),compare);
-  for (--i; helices[i] > freq_target && i >= 0; i--)
-    partial += helices[i];
+  */
+
+  for (i=0; list[i]->freq > freq_target && i < total; i++)
+    partial += list[i]->freq;
   //go 1 lower, so thresholds all under start
-  partial += helices[i--];
+  //partial += helices[i--];
   //if everything above start, return the start
-  if (i < 0)
+  if (i == total)
     return (double) start;
+  
   //if stopping at freq_target results in less than 50% coverage, go to at least 50%
-  frac = ((double) partial)/((double)sum);
-  if (frac < set->opt->COVERAGE) {
-    //printf("not up to coverage with %d/%d\n",partial,sum);
-    while (frac < set->opt->COVERAGE) {
-      partial += helices[i--];
-      frac = ((double) partial)/((double)sum);
+  if (set->opt->ALTTHRESH) {
+    frac = ((double) partial)/((double)set->helsum);
+    if (frac < set->opt->COVERAGE) {
+      //printf("not up to coverage with %d/%d\n",partial,sum);
+      while (frac < set->opt->COVERAGE) {
+	partial += list[i++]->freq;
+	frac = ((double) partial)/((double)set->helsum);
+      }
+      //printf("now at %d/%d = %.1f at helices[%d] = %d\n",partial,sum,frac,i+1,helices[i+1]);
     }
-    //printf("now at %d/%d = %.1f at helices[%d] = %d\n",partial,sum,frac,i+1,helices[i+1]);
   }
+  if (i == 0)
+    i++;
   index = i;
-  for ( ; i > 0; i--) {
-    ave = (helices[i+1]+helices[i-1])/2;
-    diff = ave - helices[i];
+  for ( ; i <total-1; i++) {
+    ave = (list[i+1]->freq+list[i-1]->freq)/2;
+    diff = ave - list[i]->freq;
     if (diff > dropoff) {
       dropoff = diff;
       index = i;
     }
   }
-  return (100*(double) helices[index+1]/(double) set->opt->NUMSTRUCTS);
+  set->num_fhc = index;
+  return (100*(double) list[index-1]->freq/(double) set->opt->NUMSTRUCTS);
 }
 
 double set_threshold_old(Set *set, int start) {
@@ -397,20 +436,29 @@ int compare(const void *v1, const void *v2) {
 }
 
 //looks up and prints actual helices for all id's
-void print_all_helices(Set *set) {
+int print_all_helices(Set *set) {
   HC **helices = set->helices;
   char *val,*trip;
-  int i,m,total = set->hc_num;
+  int i,k,m,total = set->hc_num,target=0,cov=0;
 
+  target = set->opt->COVERAGE*set->helsum;
   for (i = 0; i < total; i++) {
     val = helices[i]->maxtrip;
     m = helices[i]->freq;
     trip = helices[i]->avetrip;
-    if (val != NULL)
-      printf("Helix %d is %s (%s) with freq %d\n",i+1,val,trip,m);
-    else
-      printf("No entry for %d\n",i);
+    if (set->opt->VERBOSE) {
+      if (val != NULL)
+	printf("Helix %d is %s (%s) with freq %d\n",i+1,val,trip,m);
+      else
+	printf("No entry for %d\n",i);
+    }
+    if (cov < target) {
+      cov += helices[i]->freq;
+      k = i;
+    }
    }
+  printf("%.2f coverage of helices after first %d HC\n",set->opt->COVERAGE,k+1);
+  return k+1;
  }
 
 double set_num_fhc(Set *set) {
@@ -456,7 +504,7 @@ double set_num_fhc(Set *set) {
 //assumes threshold found, now setting actual helices
 void find_freq(Set *set) {
   int marg,i,total;
-  double percent;
+  double percent,cov=0;
   HC *hc;
 
   total = set->hc_num;
@@ -464,12 +512,13 @@ void find_freq(Set *set) {
   for (i = 0; i < total; i++) {
     hc = set->helices[i];
     marg = hc->freq;
-    percent = ((double) marg)*100.0/((double)set->opt->NUMSTRUCTS);
+    percent = ((double) marg*100.0)/((double)set->opt->NUMSTRUCTS);
     if (percent >= set->opt->HC_FREQ) {
       if (set->opt->VERBOSE)
 	printf("Featured helix %d: %s with freq %d\n",i+1,hc->maxtrip,marg);
       hc->isfreq = 1;      
       hc->binary = 1<<i;
+      cov += (double)marg/(double)set->helsum;;
     }
     else {
       set->num_fhc = i;
@@ -482,8 +531,406 @@ void find_freq(Set *set) {
     marg = set->helices[62]->freq;
     printf("Capping at 63 fhc with freq %d\n",marg);
     set->opt->HC_FREQ = ((double) marg)*100.0/((double)set->opt->NUMSTRUCTS);
-  }
+  } else
+    printf("Coverage by featured helix classes: %.3f\n",cov);
 }
+
+/* Beginning of top down version of algorithm:
+
+This function translate extended profile; split based on min fhc needed for coverage
+set->profiles populated in first pass over structure file; extended profiles
+chooses h based on highest opt
+returns index of lowest freq fhc
+*/
+int top_down_h(Set *set, int minh) {
+  int i,j=0,*extended,*prof=NULL,hcov=0,gap=0,thresh,flag=1,size=1;
+  double cov,atmax,lastcov=0,*opt,largest=0;
+  Profnode *root;
+
+  extended = malloc(sizeof(int)*set->prof_num);
+  //qsort profiles first?
+  for (i = 0; i < set->prof_num; i++) {
+    translate(set->profiles[i]);
+    extended[i] = i;
+  }
+  root = makeProfnode(prof);
+  root->profnum = 0;
+  root->extended = extended;
+  root->extnum = set->prof_num;
+  root->coverage = set->opt->NUMSTRUCTS;
+  set->proftree[0] = malloc(sizeof(Profnode*));
+  set->proftree[0][0] = root;
+  set->treeindex[0] = 1;
+  opt = malloc(sizeof(double)*ARRAYSIZE*size);
+  for (i = 0; i < set->hc_num; i++) {
+    hcov += set->helices[i]->freq;
+    cov = (double)hcov/(double)set->helsum;
+    //printf("coverage for first %d hc is %.2f\n",i+1,cov);
+    atmax = split(set,i);
+    //printf("for %d atmax is %.3f\n",i,atmax);
+    /*get one before minh
+    if (i+2>= minh) {
+      if (j == ARRAYSIZE*size)
+	opt = realloc(opt,sizeof(double)*ARRAYSIZE*++size);
+      opt[j++] = cov+atmax;
+      //printf("%d\t%.3f\n",i+1,cov+atmax);
+    }
+    */
+    if (i+1 >= minh) {
+      printf("%d\t%.3f\t%d\t%.3f\n",i+1,cov,set->helices[i]->freq,atmax);
+      if (j == ARRAYSIZE*size)
+	opt = realloc(opt,sizeof(double)*ARRAYSIZE*++size);
+      opt[j++] = cov+atmax;
+      /* need this code if want to consider only beginning
+      if (cov+atmax-lastcov < 0) {
+	//the last one doesn't count as valid but still in opt
+	i--;
+	break;
+      }
+      */
+      lastcov = cov+atmax;
+      /*gap function
+      if (i>=minh)
+	gap = set->helices[i-1]->freq - set->helices[i]->freq;
+      if (gap > largest) {
+	thresh = i-1;
+	largest = gap;
+      }
+      */
+      if (lastcov > largest) {
+	//printf("opt %.2f at %d\n",lastcov,i+1);
+	thresh = i;
+	largest = lastcov;
+      }
+      
+    }
+    if (set->helices[i]->freq < set->opt->PNOISE*set->opt->NUMSTRUCTS/100)
+      break;
+    if (atmax != 0 && atmax < set->opt->COVERAGE)
+      break;
+  }
+  printf("min h %d, max h %d\n",minh,i);  
+  if (minh > i) {
+    thresh = minh-1;
+    for (i++; i < minh; i++) {
+      atmax = split(set,i);
+      hcov += set->helices[i]->freq;
+      cov = (double)hcov/(double)set->helsum;
+      printf("%d\t%.3f\t%d\t%.3f\n",i+1,cov,set->helices[i]->freq,atmax);
+      //if (j == ARRAYSIZE*size)
+      //opt = realloc(opt,sizeof(double)*ARRAYSIZE*++size);
+      //opt[j++] = cov+atmax;
+      //thresh += find_kink(opt,j);
+    }
+    if (set->opt->VERBOSE)
+      printf("No good h values; selecting min h\n");
+  } 
+  //else
+  //thresh = find_kink(opt,j)+minh-1;
+  set->opt->HC_FREQ = (double)set->helices[thresh]->freq*100/(double)set->opt->NUMSTRUCTS;
+  free(opt);
+  return thresh;
+}
+
+//set to kink
+//currently doesn't allow first value to be chosen
+int find_kink(double *opt, int j) {
+  int i, thresh=0;
+  double largest = 0,current;
+
+  for (i = 1; i < j-1; i++) {
+    current = opt[i] - (opt[i-1]+opt[i+1])/2;
+    //printf("current is %.3f\n",current);
+    if (current > largest) {
+      largest = current;
+      thresh = i;
+    }
+  }
+  //printf("largest kink %.3f at %d\n",largest,thresh);
+  return thresh;
+  //offset by 1 because we include 1 prior to min
+}
+
+//translate to sorted HC numbering
+void translate(Profile *prof) {
+  int *id,size=1,*pr,psize=1,i,k=0;
+  char *blank = " ",*hc,*newprof,*val,*oldprof;
+
+  oldprof = prof->profile;
+  //printf("\t%s-> ",oldprof);
+  pr = malloc(sizeof(int)*ARRAYSIZE);
+  for (hc = strtok(oldprof,blank); hc; hc = strtok(NULL,blank)) {
+    id = hashtbl_get(translate_hc,hc);
+    if (k >= ARRAYSIZE*psize)
+      pr = realloc(pr,sizeof(int)*ARRAYSIZE*++psize);
+    pr[k++] = *id;
+  }
+  qsort(pr,k,sizeof(int),compare);
+
+  newprof = malloc(sizeof(char)*ARRAYSIZE*size);
+  newprof[0] = '\0';
+  val = malloc(sizeof(char)*ARRAYSIZE);
+  for (i = 0; i < k; i++) {
+    sprintf(val,"%d ",pr[i]);
+    if (strlen(newprof) + strlen(val) >= ARRAYSIZE*size-1) {
+      newprof = realloc(newprof,sizeof(char)*ARRAYSIZE*++size);
+    }
+    newprof = strcat(newprof,val);
+  }
+  //printf("%s\n",newprof);
+  prof->profile = newprof;
+}
+
+//split proftree at index level, according to corresponding hc
+double split(Set *set, int index) {
+  int num,i,length=0,k=0,scov=0,noise = set->opt->PNOISE*set->opt->NUMSTRUCTS/100;
+  double atmax=1.0;
+  Profnode **level,**next;
+  
+  level = set->proftree[index];
+  num = set->treeindex[index];
+  //printf("splitting level %d of size %d\n",index,num);
+  for (i = 0; i < num; i++) {
+    length += split_one(set,level[i],index);
+  }
+  //printf("finished split of length %d\n",length);
+  next = malloc(sizeof(Profnode*)*length);
+  for (i = 0; i < num; i++) {
+    if (level[i]->withNext)
+      next[k++] = level[i]->withNext;
+    if (level[i]->woNext)
+      next[k++] = level[i]->woNext;
+  }
+  qsort(next,k,sizeof(Profnode*),nodecompare);
+
+  for (i = 0; i < k && next[i]->coverage > noise; i++) {
+    scov += next[i]->coverage;
+  }
+  atmax = (double)scov/(double)set->opt->NUMSTRUCTS;
+/*
+  for (i = 0; i < k; i++) {
+    scov += next[i]->coverage;
+    if ((double)scov/(double)set->opt->NUMSTRUCTS > 0.85)
+      break;
+    //printf("First %d profiles with %.2f coverage\n",i+1,(double)scov/(double)set->opt->NUMSTRUCTS);
+    //printf("\t\t%d\t%.2f\n",i+1,(double)scov/(double)set->opt->NUMSTRUCTS);
+        
+    if (i+1 == set->opt->MAXPNUM) {
+      atmax = (double)scov/(double)set->opt->NUMSTRUCTS;
+      break;
+      //printf("at20 .2f\n",at20);
+    }
+  }
+  */
+  
+  if (index+1 >= ARRAYSIZE*set->treesize) {
+    set->treesize++;
+    set->proftree = realloc(set->proftree,sizeof(Profnode**)*ARRAYSIZE*set->treesize);
+    set->treeindex = realloc(set->treeindex,sizeof(int*)*ARRAYSIZE*set->treesize);
+  }
+  set->proftree[index+1] = next;
+  set->treeindex[index+1] = length;
+  return atmax;
+}
+
+int nodecompare(const void *v1, const void *v2) {
+  Profnode *p1, *p2;
+  p1 = *((Profnode**)v1);
+  p2 = *((Profnode**)v2);
+  return (p2->coverage - p1->coverage);
+}
+
+/*split one profile based on index hc
+returns number of children node has (1 or 2)
+*/
+int split_one(Set *set,Profnode *node,int index) {
+  int *ext,i,*with,*wo,kw=0,ko=0,count=0,wcov=0,wocov=0;
+  char *profile;
+  Profnode *withNext, *woNext;
+
+  ext = node->extended;
+  with = malloc(sizeof(int)*node->extnum);    
+  wo = malloc(sizeof(int)*node->extnum);
+  for (i = 0; i < node->extnum; i++) {
+    if (check_hc(set->profiles[ext[i]]->profile,index+1)) {
+      with[kw++] = ext[i];
+      wcov += set->profiles[ext[i]]->freq;
+    }
+    else {
+      wo[ko++] = ext[i];
+      wocov += set->profiles[ext[i]]->freq;
+    }
+  }
+  profile = convert(node->prof,node->profnum);
+  //printf("\tfor %s, with %d has %d prof cov %d, wo %d cov %d\n",profile,index+1,kw,wcov,ko,wocov);
+  if (kw > 0) {
+    if (kw < node->extnum)
+      with = realloc(with,sizeof(int)*kw);
+    if (node->prof) {
+      ext = malloc(sizeof(int)*(node->profnum+1));
+      for (i=0; i< node->profnum; i++) 
+	ext[i] = node->prof[i];
+      ext[i] = index+1;
+      qsort(ext,node->profnum+1,sizeof(int),compare);
+    } else {
+      ext = malloc(sizeof(int));
+      *ext = index + 1;
+    }
+    withNext = makeProfnode(ext);
+    withNext->profnum = node->profnum+1;
+    withNext->extended = with;
+    withNext->extnum = kw;
+    withNext->coverage = wcov;
+    withNext->parent = node;
+    node->withNext = withNext;
+    count++;
+  }
+  if (ko > 0) {
+    if (ko < node->extnum)
+      wo = realloc(wo,sizeof(int)*ko);
+    woNext = makeProfnode(node->prof);
+    woNext->profnum = node->profnum;
+    woNext->extended = wo;
+    woNext->extnum = ko;
+    woNext->coverage = wocov;
+    woNext->parent = node;
+    node->woNext = woNext;
+    count++;
+  }
+  free(profile);
+  return count;
+}
+
+char* convert(int *array,int length) {
+  int size = 1,i;
+  char *prof,*val;
+
+  prof = malloc(sizeof(char)*ARRAYSIZE*size);
+  prof[0] = '\0';
+  val = malloc(sizeof(char)*ARRAYSIZE);
+  for (i = 0; i < length; i++) {
+    sprintf(val,"%d ",array[i]);
+    if (strlen(val)+strlen(prof)+1 >= ARRAYSIZE*size)
+      prof = realloc(prof,sizeof(char)*ARRAYSIZE*++size);
+    strcat(prof,val);
+  }
+  free(val);
+  return prof;
+}
+
+int check_hc(char *prof, int index) {
+  char *blank = " ",*hc,*dup;
+
+  dup = mystrdup(prof);
+  for (hc = strtok(dup,blank); hc; hc = strtok(NULL,blank)) {
+    if (index == atoi(hc)) {
+      free(dup);
+      return 1;
+    }
+  }
+  free(dup);
+  return 0;
+}
+
+//returns index of lowest selected profile
+//currently all prof above 5% or to coverage
+int top_down_p(Set *set, int h) {
+  int i,max=set->treeindex[h+1],gap=0,largest=0,thresh=-1,minp=1;
+  double cov = 0;
+  Profnode **profs;
+
+  profs = set->proftree[h+1];
+  //opt = malloc(sizeof(double)*ARRAYSIZE*size);
+  //if (set->opt->MAXPNUM < set->treeindex[h+1])
+  //max = set->opt->MAXPNUM;
+  printf("Total number of profiles %d\n",max);
+  for (i = 0; i < max; i++) {
+    cov += (double)profs[i]->coverage/(double)set->opt->NUMSTRUCTS;
+    if (cov < set->opt->COVERAGE) {
+      minp++;
+      continue;
+    }
+    //if (profs[i]->coverage > 
+
+    if (profs[i]->coverage <= set->opt->PNOISE*set->opt->NUMSTRUCTS/100) {
+      if (i == minp-1)
+	thresh = i;
+      else
+	thresh = i-1;
+      break;
+    }
+    printf("%d\t%.2f\t%d\n",i+1,cov,profs[i]->coverage);
+
+    //if (i >= ARRAYSIZE*size)
+    //opt = realloc(opt,sizeof(double)*ARRAYSIZE*++size);
+    //opt[j++] = profs[i]->coverage;
+    if (i>=minp)
+      gap = profs[i-1]->coverage - profs[i]->coverage;
+    if (gap > largest) {
+      largest = gap;
+      thresh = i-1;
+    }
+  }
+  /*if no p possible less than MAXPNUM with coverage, go with min p with coverage
+  if (thresh == -1) {
+    while (cov < set->opt->COVERAGE && i < set->treeindex[h+1]) 
+      cov += (double)profs[i++]->coverage/(double)set->opt->NUMSTRUCTS;
+    thresh = i-1;
+    minp = i;
+  } else {
+    if (max == set->treeindex[h+1])
+      max--;
+    thresh = find_kink_p(profs,minp,max)-1;
+  }
+  */
+  //thresh = find_kink_p(profs,minp,max-1)-1;
+  printf("Minimum p needed for %.2f coverage: %d\n",set->opt->COVERAGE,minp);
+  //free(opt);
+  return thresh;
+}
+
+//set to freq right above kink
+int find_kink_p(Profnode **profs,int start, int stop) {
+  int i,thresh=start;
+  double current, largest = 0;
+
+  //printf("start is %d, stop is %d\n",start,stop);
+  for (i = start; i < stop; i++) {
+    current = ((double)(profs[i-1]->coverage + profs[i+1]->coverage)/2)-(double)profs[i]->coverage;
+    //printf("considering %d with kink %.2f\n",i,current);
+    if (largest < current) {
+      largest = current;
+      thresh = i;
+      //printf("thresh is %d with %.2f\n",thresh,largest);
+    }
+  }
+  return thresh;
+}
+
+void print_topdown_prof(Set *set, int h, int p) {
+  int i,cov=0;
+  char *prof;
+  Profnode **profs;
+
+  profs = set->proftree[h+1];
+  for (i = 0; i < set->treeindex[h+1]; i++) {
+    prof = convert(profs[i]->prof,profs[i]->profnum);
+    if (i <= p) {
+      if (set->opt->VERBOSE)
+	printf("Selected profile %s with freq %d\n",prof,profs[i]->coverage);
+      cov += profs[i]->coverage;
+    }
+    if (set->opt->VERBOSE)
+      printf("Profile %s with freq %d\n",prof,profs[i]->coverage);
+  }
+  printf("Coverage by selected profiles: %.3f\n",(double)cov/(double)set->opt->NUMSTRUCTS);
+}
+
+/*
+
+End of top down approach code
+
+*/
 
 void make_profiles(Set *set) {
   FILE *fp,*file;
@@ -736,47 +1183,59 @@ double set_num_sprof(Set *set) {
     set->opt->NUM_SPROF = k;
   }
   */
+  set->num_sprof = set->opt->NUM_SPROF;
   marg = set->profiles[set->opt->NUM_SPROF-1]->freq;
   return (100*(double) marg/(double) set->opt->NUMSTRUCTS);
 }
 
 double set_p_threshold(Set *set, int start) {
-int *helices,i,sum=0,freq_target,ave = 0,diff,index,dropoff=0,partial=0,total;
-  double frac;
+  int i=0,freq_target,ave = 0,diff,index,dropoff=0,partial=0,total;
+  double frac=0;
   //where you start in drop off calc has to cover at least 50% of area
   //double coverage = 50.0;
   Profile **list = set->profiles;
-
+  
   total = set->prof_num;
   //translate start percentage to actual num of elements
   freq_target = start*set->opt->NUMSTRUCTS/100;
-  helices = malloc(sizeof(int)*total);
+  /*
+  profiles = malloc(sizeof(int)*total);
   for (i = 0; i < total; i++) {
-    helices[i] = list[i]->freq;
-    //printf("helices[%d] = %d\n",i,helices[i]);
-    sum += helices[i];
+    profiles[i] = list[i]->freq;
+    //printf("profiles[%d] = %d\n",i,profiles[i]);
+    sum += profiles[i];
   }
-  qsort(helices,total,sizeof(int),compare);
-  for (--i; helices[i] > freq_target && i >= 0; i--)
-    partial += helices[i];
-  //if everything above start, return the start
-  if (i < 0)
-    return (double) start;
+  printf("sum is %d, freq target %d\n",sum,freq_target);
+  qsort(profiles,total,sizeof(int),compare);
+  */
 
+  //altthres brings you to freq target first
+  if (set->opt->ALTTHRESH) {
+    for (i=0; i<total && list[i]->freq > freq_target; i++) {
+      partial += list[i]->freq;
+    }
+    //if everything above start, return the start
+    if (i == total) {
+      set->num_sprof = i;
+      return (double) start;
+    }
+  }
   //if stopping at freq_target results in less than 50% coverage, go to at least 50%
-  frac = ((double) partial)/((double)sum);
+  frac = ((double) partial)/((double)set->opt->NUMSTRUCTS);
   if (frac < set->opt->COVERAGE) {
     //printf("not up to coverage with %d/%d\n",partial,sum);
-    while (frac < set->opt->COVERAGE) {
-      partial += helices[i--];
-      frac = ((double) partial)/((double)sum);
+    while (frac < set->opt->COVERAGE && i < total) {
+      partial += list[i++]->freq;
+      frac = ((double) partial)/((double)set->opt->NUMSTRUCTS);
     }
     //printf("now at %d/%d = %.1f at helices[%d] = %d\n",partial,sum,frac,i+1,helices[i+1]);
   }
+  if (i == 0) 
+    i++;
   index = i;
-  for ( ; i > 0; i--) {
-    ave = (helices[i+1]+helices[i-1])/2;
-    diff = ave - helices[i];
+  for ( ; i < total-1; i++) {
+    ave = (list[i+1]->freq+list[i-1]->freq)/2;
+    diff = ave-list[i]->freq;
     //printf("ave is %d and diff is %d for %d\n",ave,diff,i);
     if (diff > dropoff) {
       //printf("bumping off %d for %d\n",dropoff,diff);
@@ -784,48 +1243,40 @@ int *helices,i,sum=0,freq_target,ave = 0,diff,index,dropoff=0,partial=0,total;
       index = i;
     }
   }
-  return (100*(double) helices[index+1]/(double) set->opt->NUMSTRUCTS);
+  set->num_sprof = index;
+  return (100*(double) list[index-1]->freq/(double) set->opt->NUMSTRUCTS);
 }
 
+//can eliminate this function if necessary
 void select_profiles(Set *set) {
-  int i,coverage=0,cov15=0,stop,cov50=0;
+  int i,coverage=0,stop,cov=0,target;
   double percent;
   Profile *prof;
 
   //in case we select everything
-  set->num_sprof = set->prof_num;
-  for (i = 0; i < set->prof_num; i++) {
+  //set->num_sprof = set->prof_num;
+  target = set->opt->COVERAGE*set->opt->NUMSTRUCTS;
+  for (i = 0; i < set->num_sprof; i++) {
     prof = set->profiles[i];
-    percent = ((double) prof->freq)*100.0 / ((double)set->opt->NUMSTRUCTS);
+    //percent = ((double) prof->freq)*100.0 / ((double)set->opt->NUMSTRUCTS);
     //printf("%s has percent %.1f\n",node->data,percent);
-    if (i == 15)
-      cov15 = coverage;
-    if (coverage < set->opt->COVERAGE*set->opt->NUMSTRUCTS) 
-      cov50 = i;
-    if (percent < set->opt->PROF_FREQ) {
-      set->num_sprof = i;
-      i = set->prof_num;
-    }
-    else {
-      prof->selected = 1;
-      coverage += prof->freq;
-      if (set->opt->VERBOSE)
-	printf("Selected profile %swith freq %d\n",prof->profile,prof->freq);
-    }
+    prof->selected = 1;
+    coverage += prof->freq;
+    if (coverage < target)
+      cov = i+1;
+    if (set->opt->VERBOSE)
+      printf("Selected profile %swith freq %d\n",prof->profile,prof->freq);
   }
-  i = set->num_sprof;
-  if (15 < set->prof_num)
-    stop = 15;
-  else
-    stop = set->prof_num;
-  if (i < 15) {
-    for (cov15 = coverage; i < stop; i++) {
-      //printf("cov15 now %d\n",cov15);
-      cov15 += set->profiles[i]->freq;
+  printf("Coverage by selected profiles: %.3f\n",(double)coverage/(double)set->opt->NUMSTRUCTS);
+  if (coverage < target) {
+    while (coverage < target) {
+      coverage += set->profiles[i++]->freq;
+      if (i >= set->prof_num)
+	fprintf(stderr,"in select profiles() exceeding number of profiles\n");
     }
+    cov = i;
   }
-  printf("Number of structures needed to get %.2f coverage: %d\n",set->opt->COVERAGE, cov50+1);
-  printf("Number of structures with direct representation in graph: %d/%d\n",coverage,set->opt->NUMSTRUCTS);
+  printf("Number of profiles needed to get %.2f coverage: %d\n",set->opt->COVERAGE, cov+1);
   //printf("Number of structures represented by top %d profiles: %d/%d\n",stop,cov15,set->opt->NUMSTRUCTS);
 }
 

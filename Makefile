@@ -21,38 +21,39 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # 
-# Retrieved from: http://en.literateprograms.org/Hash_table_(C)?oldid=16749
 
-#find and replace all 'condensed' with 'graph' to run full graph
 
-all: main
+all: RNAprofile
 
-main: main.o hashtbl.o Set.o profile.o helix_class.o options.o graph.o memoryDFS.o
-	cc -o main -Wall -pedantic -g -lm hashtbl.o main.o Set.o profile.o helix_class.o options.o graph.o memoryDFS.o
+RNAprofile: main.o hashtbl.o Set.o profile.o helix_class.o options.o graph.o memoryDFS.o Profnode.o
+	cc -o RNAprofile -Wall -g -lm hashtbl.o main.o Set.o profile.o helix_class.o options.o graph.o memoryDFS.o profnode.o
 
 main.o: main.c Set.h hashtbl.h Options.h graph.h memoryDFS.h
-	cc -o main.o -Wall -pedantic -g -c main.c
+	cc -o main.o -Wall -g -c main.c
 
 hashtbl.o: hashtbl.c hashtbl.h
-	cc -o hashtbl.o -Wall -pedantic -g -c hashtbl.c
+	cc -o hashtbl.o -Wall -g -c hashtbl.c
 
-Set.o: Set.c Set.h hashtbl.h helix_class.h Profile.h Options.h graph.h
-	cc -o Set.o -Wall -pedantic -g -c Set.c
+Set.o: Set.c Set.h hashtbl.h helix_class.h Profile.h Options.h graph.h Profnode.h
+	cc -o Set.o -Wall -g -c Set.c
 
 profile.o: Profile.c Profile.h hashtbl.h
-	cc -o profile.o -Wall -pedantic -g -lm -c Profile.c
+	cc -o profile.o -Wall -g -lm -c Profile.c
 
 helix_class.o: helix_class.c helix_class.h 
-	cc -o helix_class.o -Wall -pedantic -g -c helix_class.c
+	cc -o helix_class.o -Wall -g -c helix_class.c
 
 options.o: Options.c Options.h
-	cc -o options.o -Wall -pedantic -g -c Options.c
+	cc -o options.o -Wall -g -c Options.c
 
 graph.o: graph.c graph.h Set.h
-	cc -o graph.o -Wall -pedantic -g -c graph.c
+	cc -o graph.o -Wall -g -c graph.c
 
 memoryDFS.o: memoryDFS.c memoryDFS.h graph.h hashtbl.h
-	cc -o memoryDFS.o -Wall -pedantic -g -c memoryDFS.c
+	cc -o memoryDFS.o -Wall -g -c memoryDFS.c
+
+Profnode.o: Profnode.c Profnode.h
+	cc -o profnode.o -Wall -g -c Profnode.c
 
 clean:
 	rm -f *.o main

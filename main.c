@@ -8,7 +8,7 @@
 
 //input first the fasta file, then the sample_1000.out file run on the fasta, then options
 int main(int argc, char *argv[]) {
-  int i;
+  int i, h, minh,p;
   HASHTBL *deleteHash;
   FILE *fp;
   Set *set;
@@ -73,6 +73,12 @@ int main(int argc, char *argv[]) {
 	i++;
       }
     }
+    else if (!strcmp(argv[i],"-m")) {
+      if (i + 1 <= argc - 1) {
+	opt->PNOISE = atoi(argv[i+1]);
+	i++;
+      }
+    }
     else if (!strcmp(argv[i],"-o")) {
       if (i + 1 <= argc - 1) {
 	opt->OUTPUT = argv[i+1];
@@ -103,42 +109,58 @@ int main(int argc, char *argv[]) {
       opt->GRAPH = 0;
     else if (!strcmp(argv[i],"-r"))
       opt->REP_STRUCT = 1;
+    else if (!strcmp(argv[i],"-t"))
+      opt->TOPDOWN = 1;
+    else if (!strcmp(argv[i],"-a"))
+      opt->ALTTHRESH = 0;
   }
 
   input_seq(set,argv[1]);
   process_structs(set);
   reorder_helices(set);
-
-  if (set->opt->VERBOSE)
-    print_all_helices(set);
-  printf("Total number of equivalence helix classes: %d\n",set->hc_num);
+  minh = print_all_helices(set);
+  printf("Total number of helix classes: %d\n",set->hc_num);
   
-  if (set->opt->NUM_FHC)
-    set->opt->HC_FREQ = set_num_fhc(set);
-  else if (set->opt->HC_FREQ==0) 
-    set->opt->HC_FREQ = set_threshold(set,H_START);
+  if (set->opt->TOPDOWN) {
+    printf("Total number of extended profiles: %d\n",set->prof_num);
+    h = top_down_h(set,minh);
+    //if (set->opt->VERBOSE)
+    printf("Number of featured helix classes: %d\n",h+1);
+    find_freq(set);
+    p = top_down_p(set,h);
+    //if (set->opt->VERBOSE)
+    printf("Number of selected profiles: %d\n",p+1);
+    print_topdown_prof(set,h,p);
+  } else {
+    if (set->opt->NUM_FHC)
+      set->opt->HC_FREQ = set_num_fhc(set);
+    else if (set->opt->HC_FREQ==0) 
+      set->opt->HC_FREQ = set_threshold(set,H_START);
+    
+    if (set->opt->VERBOSE) {
+      printf("Threshold to find frequent helices: %.1f\%\n",set->opt->HC_FREQ);
+      printf("Number of structures processed: %d\n",set->opt->NUMSTRUCTS);
+    }
+    
+    find_freq(set);
+    
+    printf("Total number of featured helix classes: %d\n",set->num_fhc);
+    make_profiles(set);
+    
+    printf("Total number of profiles: %d\n",set->prof_num);
+    print_profiles(set);
+    
+    if (set->opt->NUM_SPROF)
+      set->opt->PROF_FREQ = set_num_sprof(set);
+    else if (set->opt->PROF_FREQ == 0) {
+      set->opt->PROF_FREQ = set_p_threshold(set,P_START);
+    }
+    if (set->opt->VERBOSE)
+      printf("setting p to %.1f\n",set->opt->PROF_FREQ);
+    select_profiles(set);
+    printf("Total number of selected profiles: %d\n",set->num_sprof);
+  }
   
-  if (set->opt->VERBOSE) {
-    printf("Threshold to find frequent helices: %.1f\%\n",set->opt->HC_FREQ);
-    printf("Number of structures processed: %d\n",set->opt->NUMSTRUCTS);
-  }
-  find_freq(set);
-
-  printf("Total number of selected helices: %d\n",set->num_fhc);
-  make_profiles(set);
-  printf("Total number of profiles: %d\n",set->prof_num);
-  print_profiles(set);
-
-  if (set->opt->NUM_SPROF)
-    set->opt->PROF_FREQ = set_num_sprof(set);
-  else if (set->opt->PROF_FREQ == 0) {
-    set->opt->PROF_FREQ = set_p_threshold(set,P_START);
-  }
-  if (set->opt->VERBOSE)
-    printf("setting p to %.1f\n",set->opt->PROF_FREQ);
-  select_profiles(set);
-  printf("Total number of selected profiles: %d\n",set->num_sprof);
-
   if (set->opt->INPUT)
     process_one_input(set);
   if (set->opt->REP_STRUCT) {

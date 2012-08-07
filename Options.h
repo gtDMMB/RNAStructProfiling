@@ -56,9 +56,12 @@ typedef struct options {
   double PROF_FREQ;
   double COVERAGE;
   int NUMSTRUCTS;
+  int PNOISE;
   int CYCLES;
   int GRAPH;
   int REP_STRUCT;
+  int TOPDOWN;
+  int ALTTHRESH;
 } Options;
 
 Options* make_options();

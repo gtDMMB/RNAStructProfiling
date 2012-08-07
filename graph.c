@@ -163,8 +163,9 @@ void find_LCAs(FILE *fp,Set *set) {
       break;
     //printf("Cycle %d with %d vertices\n",cycles,k);
   }
-  if (set->opt->VERBOSE) 
+  /*  if (set->opt->VERBOSE) 
     printf("Total cycles %d\n",cycles);
+  */
   set->graph->neighbors = vertices;
   set->graph->diff = diff;
   set->graph->numNeighbors = k;
