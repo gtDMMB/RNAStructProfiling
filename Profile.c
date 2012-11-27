@@ -2,7 +2,7 @@
 #include "Profile.h"
 
 Profile* create_profile(char *profile) {
-  Profile *prof = malloc(sizeof(Profile));
+  Profile *prof = (Profile*) malloc(sizeof(Profile));
   prof->freq = 1;
   prof->selected = 0;
   prof->profile = profile;

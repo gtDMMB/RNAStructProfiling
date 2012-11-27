@@ -5,26 +5,58 @@
 #include "Set.h"
 #include "Options.h"
 #include "memoryDFS.h"
+#include "boltzmann_main.h"
 
-//input first the fasta file, then the sample_1000.out file run on the fasta, then options
+using namespace std;
+
+/*input first the fasta file, then optionally the sample_1000.out file run on the fasta, then options*/
 int main(int argc, char *argv[]) {
-  int i, h, minh,p;
+  int i, h, minh,p,input = 0;
+char **args = NULL;
   HASHTBL *deleteHash;
   FILE *fp;
   Set *set;
   Options *opt;
 
-  if (argc < 3) {
+  if (argc < 2) {
+/*print out list of options
     fprintf(stderr,"Not enough arguments\n");
-    exit(EXIT_FAILURE);
-  }
-
-  set = make_Set(argv[2]);
+    exit(EXIT_FAILURE);*/
+	puts("Error: Missing input file.");
+	puts("Usage: RNAprofile [OPTIONS] ... FILE");
+	puts("\tFILE is an RNA sequence file containing only the sequence or in FASTA format.\n");
+	print_options();
+	puts("\nEXAMPLES");
+	puts("1. Profile 1,000 structures sampled with gtboltzmann, default options");
+	puts("\t./RNAprofile <seq_file>");
+	puts("1. Profile 1,000 structures sampled with gtboltzmann, default options");
+	puts("\t./RNAprofile <seq_file>");
+	puts("2. Profile input structures obtained from gtboltzmann with verbose output");
+	puts("\t./RNAprofile -e <output samples file> -v <seq_file>\n");
+	exit(EXIT_FAILURE);
+  } 
+  set = make_Set("output.samples");
+  //set = make_Set(argv[2]);
   opt = set->opt;
-  for (i = 3; i < argc; i++) {
+  for (i = 1; i < argc-1; i++) {
     //printf("argv[%d] is %s\n",i,argv[i]);
-    if (!strcmp(argv[i],"-h")) {
-      if ((i + 1 <= argc - 1) && sscanf(argv[i+1],"%f",&(opt->HC_FREQ))) {
+    if (!strcmp(argv[i],"-e")) {
+      if (i + 1 <= argc - 2) {
+	set->structfile = argv[i+1];
+	i++;
+	input = 1;
+      }
+    }
+    if (!strcmp(argv[i],"-sfold")) {
+      if (i + 1 <= argc - 2) {
+	set->structfile = argv[i+1];
+	i++;
+	input = 1;
+	opt->SFOLD = 1;
+      }
+    }
+    else if (!strcmp(argv[i],"-h")) {
+      if ((i + 1 <= argc - 2) && sscanf(argv[i+1],"%f",&(opt->HC_FREQ))) {
 	opt->HC_FREQ = atof(argv[i+1]);
 	if (opt->HC_FREQ < 0 || opt->HC_FREQ > 100) {
 	  fprintf(stderr,"Error: invalid input %f for frequency threshold\n",opt->HC_FREQ);
@@ -34,7 +66,7 @@ int main(int argc, char *argv[]) {
       }
     }
     else if (!strcmp(argv[i],"-p")) {
-      if ((i + 1 <= argc - 1) && sscanf(argv[i+1],"%f",&(opt->PROF_FREQ))) {
+      if ((i + 1 <= argc - 2) && sscanf(argv[i+1],"%f",&(opt->PROF_FREQ))) {
 	opt->PROF_FREQ = atof(argv[i+1]);
 	if (opt->PROF_FREQ < 0 || opt->PROF_FREQ > 100) {
 	  fprintf(stderr,"Error: invalid input %f for frequency threshold\n",opt->PROF_FREQ);
@@ -44,65 +76,67 @@ int main(int argc, char *argv[]) {
       }
     }
     else if (!strcmp(argv[i],"-c")) {
-      if ((i + 1 <= argc - 1) && sscanf(argv[i+1],"%f",&(opt->COVERAGE))) {
+      if ((i + 1 <= argc - 2) && sscanf(argv[i+1],"%f",&(opt->COVERAGE))) {
 	opt->COVERAGE = atof(argv[i+1]);
 	i++;
       }
     }
     else if (!strcmp(argv[i],"-f")) {
-      if ((i + 1 <= argc - 1) && sscanf(argv[i+1],"%d",&(opt->NUM_FHC))) {
+      if ((i + 1 <= argc - 2) && sscanf(argv[i+1],"%d",&(opt->NUM_FHC))) {
 	opt->NUM_FHC = atoi(argv[i+1]);
 	i++;
       }
     }
     else if (!strcmp(argv[i],"-s")) {
-      if ((i + 1 <= argc - 1) && sscanf(argv[i+1],"%d",&(opt->NUM_SPROF))) {
+      if ((i + 1 <= argc - 2) && sscanf(argv[i+1],"%d",&(opt->NUM_SPROF))) {
 	opt->NUM_SPROF = atoi(argv[i+1]);
 	i++;
       }
     }
     else if (!strcmp(argv[i],"-l")) {
-      if ((i + 1 <= argc - 1) && sscanf(argv[i+1],"%d",&(opt->MIN_HEL_LEN))) {
+      if ((i + 1 <= argc - 2) && sscanf(argv[i+1],"%d",&(opt->MIN_HEL_LEN))) {
 	opt->MIN_HEL_LEN = atoi(argv[i+1]);
 	i++;
       }
     }
     else if (!strcmp(argv[i],"-u")) {
-      if ((i + 1 <= argc - 1) && sscanf(argv[i+1],"%d",&(opt->NUMSTRUCTS))) {
+      if ((i + 1 <= argc - 2) && sscanf(argv[i+1],"%d",&(opt->NUMSTRUCTS))) {
 	opt->NUMSTRUCTS = atoi(argv[i+1]);
 	i++;
       }
     }
     else if (!strcmp(argv[i],"-m")) {
-      if (i + 1 <= argc - 1) {
+      if (i + 1 <= argc - 2) {
 	opt->PNOISE = atoi(argv[i+1]);
 	i++;
       }
     }
     else if (!strcmp(argv[i],"-o")) {
-      if (i + 1 <= argc - 1) {
+      if (i + 1 <= argc - 2) {
 	opt->OUTPUT = argv[i+1];
 	i++;
       }
     }
     else if (!strcmp(argv[i],"-i")) {
-      if (i + 1 <= argc - 1) {
+      if (i + 1 <= argc - 2) {
 	opt->INPUT = argv[i+1];
 	i++;
       }
     }
     else if (!strcmp(argv[i],"-n")) {
-      if (i + 1 <= argc - 1) {
+      if (i + 1 <= argc - 2) {
 	opt->NATIVE = argv[i+1];
 	i++;
       }
     }
+/*
     else if (!strcmp(argv[i],"-k")) {
-      if (i + 1 <= argc - 1) {
+      if (i + 1 <= argc - 2) {
 	opt->CYCLES = argv[i+1];
 	i++;
       }
     }
+*/
     else if (!strcmp(argv[i],"-v"))
       opt->VERBOSE = 1;
     else if (!strcmp(argv[i],"-g"))
@@ -114,9 +148,22 @@ int main(int argc, char *argv[]) {
     else if (!strcmp(argv[i],"-a"))
       opt->ALTTHRESH = 0;
   }
+  if (!input) {
+    args = (char**)malloc(sizeof(char*)*6);
+	args[0] = "gtboltzmann";
+	args[1] = "-s";
+	args[2] = "1000";
+	args[3] = "-o";
+	args[4] = "output";
+	args[5] = argv[argc-1];
+	boltzmann_main(6,args);
+  }
 
-  input_seq(set,argv[1]);
-  process_structs(set);
+  input_seq(set,argv[argc-1]);
+  if (opt->SFOLD)
+    process_structs_sfold(set);
+  else
+    process_structs(set);
   reorder_helices(set);
   minh = print_all_helices(set);
   printf("Total number of helix classes: %d\n",set->hc_num);
@@ -145,8 +192,10 @@ int main(int argc, char *argv[]) {
     find_freq(set);
     
     printf("Total number of featured helix classes: %d\n",set->num_fhc);
-    make_profiles(set);
-    
+    if (opt->SFOLD) 
+      make_profiles_sfold(set);
+    else
+      make_profiles(set);
     printf("Total number of profiles: %d\n",set->prof_num);
     print_profiles(set);
     

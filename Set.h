@@ -4,7 +4,7 @@
 #include "helix_class.h"
 #include "Profile.h"
 #include "hashtbl.h"
-#include "graph.h"
+//#include "graph.h"
 #include "Options.h"
 #include "Profnode.h"
 
@@ -15,6 +15,20 @@
 #define HASHSIZE 31
 #define ARRAYSIZE 20
 #define INIT_SIZE 2
+
+typedef struct node
+{
+  char *label;
+  struct node **neighbors;
+  int numNeighbors;
+  int nsize;
+  int sfreq;
+  int gfreq;
+  char *bracket;
+  char **diff;
+  int DFS; 
+  unsigned long sum;
+} node;
 
 typedef struct {
   char *seq;
@@ -40,9 +54,11 @@ typedef struct {
   node *graph;
 } Set;
 
+node* createNode(char *name);
 Set* make_Set(char *name);
 void input_seq(Set *set,char *seqfile);
 void process_structs(Set *set);
+void process_structs_sfold(Set *set);
 char* longest_possible(int id,int i,int j,int k,char *seq);
 int match(int i,int j,char *seq);
 void addHC(Set *set, HC *hc, int idcount);
@@ -66,6 +82,7 @@ int find_kink_p(Profnode **profs,int start, int stop);
 void print_topdown_prof(Set *set, int h, int p);
 
 void make_profiles(Set *set);
+void make_profiles_sfold(Set *set);
 char* process_profile(HASHTBL *halfbrac,int *profile,int numhelix,Set *set);
 void make_bracket_rep(HASHTBL *brac,Profile *prof);
 void make_brackets(HASHTBL *brac, int i, int j, int id);

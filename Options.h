@@ -49,6 +49,7 @@ typedef struct options {
   char *INPUT;
   char *NATIVE;
   int VERBOSE;
+  int SFOLD;
   int MIN_HEL_LEN;
   int NUM_FHC;
   int NUM_SPROF;
@@ -65,6 +66,7 @@ typedef struct options {
 } Options;
 
 Options* make_options();
+void print_options();
 void free_options(Options* opt);
 
 #endif

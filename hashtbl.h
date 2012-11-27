@@ -32,7 +32,7 @@ Retrieved from: http://en.literateprograms.org/Hash_table_(C)?oldid=16749
 typedef size_t hash_size;
 
 struct hashnode_s {
-  const char *key;
+  char *key;
   void *data;
   struct hashnode_s *next;
 };
@@ -45,17 +45,17 @@ typedef struct keynode {
 typedef struct hashtbl {
   hash_size size;
   struct hashnode_s **nodes;
-  hash_size (*hashfunc)(const char *);
+  hash_size (*hashfunc)(char *);
   KEY *begin;
   int numkeys;
 } HASHTBL;
 
-char *mystrdup(const char *s);
-HASHTBL *hashtbl_create(hash_size size, hash_size (*hashfunc)(const char *));
+char *mystrdup(char *s);
+HASHTBL *hashtbl_create(hash_size size, hash_size (*hashfunc)(char *));
 void hashtbl_destroy(HASHTBL *hashtbl);
-int hashtbl_insert(HASHTBL *hashtbl, const char *key, void *data);
-int hashtbl_remove(HASHTBL *hashtbl, const char *key);
-void *hashtbl_get(HASHTBL *hashtbl, const char *key);
+int hashtbl_insert(HASHTBL *hashtbl, char *key, void *data);
+int hashtbl_remove(HASHTBL *hashtbl, char *key);
+void *hashtbl_get(HASHTBL *hashtbl, char *key);
 KEY* hashtbl_getkeys(HASHTBL *hashtbl);
 int hashtbl_numkeys(HASHTBL *hashtbl);
 int hashtbl_resize(HASHTBL *hashtbl, hash_size size);

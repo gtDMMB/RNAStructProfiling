@@ -5,9 +5,8 @@
 #include "Set.h"
 
 HC* create_HC(int id, char* max) {
-  HC *hc = malloc(sizeof(HC));
-  char *key = malloc(sizeof(char)*ARRAYSIZE);
-
+  HC *hc = (HC*) malloc(sizeof(HC));
+  char *key = (char*) malloc(sizeof(char)*ARRAYSIZE);
   sprintf(key,"%d",id);
   hc->id = key;
   hc->maxtrip = max;

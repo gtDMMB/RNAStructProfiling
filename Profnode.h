@@ -19,6 +19,6 @@ typedef struct profnode{
   struct profnode *parent;
 } Profnode;
 
-struct profnode* makeProfnode();
+struct profnode* makeProfnode(int *prof);
 
 #endif

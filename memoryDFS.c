@@ -95,13 +95,13 @@ int findEdge(node* root, node* v, int remove) {
     if(!strcmp(root->neighbors[i]->label, v->label)) {
       /*printf("edge exists\n");*/
       if(remove) {
-	for (child = hashtbl_get(deleteHash,root->label); child; child = child->next)
+	for (child = (KEY*)hashtbl_get(deleteHash,root->label); child; child = child->next)
 	  if (!strcmp(v->label,child->data)) 
 	    return 1;
 	//printf("removing edge (%s, %s)\n", root->label, v->label);
-	child = malloc(sizeof(KEY));
+	child = (KEY*)malloc(sizeof(KEY));
 	child->data = v->label;
-	child->next = hashtbl_get(deleteHash,root->label);
+	child->next = (keynode*)hashtbl_get(deleteHash,root->label);
 	hashtbl_insert(deleteHash,root->label,child);
       }
       return 1;
