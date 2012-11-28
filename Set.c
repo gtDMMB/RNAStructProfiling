@@ -100,7 +100,6 @@ void process_structs(Set *set) {
   HASHTBL *halfbrac,*extra,*avetrip;
   HC *hc;
 
-puts("in process structs");
   fp = fopen(set->structfile,"r");
   if (fp == NULL) {
     fprintf(stderr, "can't open %s\n",set->structfile);
@@ -130,11 +129,11 @@ puts("in process structs");
       if ((val = strtok(NULL,delim)))
         j = atoi(val);
       else
-        fprintf(stderr, "Error in file input format\n");
+        fprintf(stderr, "Error in file input format: struct %d\n",set->opt->NUMSTRUCTS);
       if ((val = strtok(NULL,delim)))
         k = atoi(val);
       else
-        fprintf(stderr, "Error in file input format\n");
+        fprintf(stderr, "Error in file input format: struct %d\n",set->opt->NUMSTRUCTS);
       if (k < set->opt->MIN_HEL_LEN) {
         toosmall++;
       //printf("too small %d %d %d\n",i,j,k);
@@ -462,8 +461,9 @@ double set_threshold(Set *set, int start) {
   }
 
   qsort(helices,total,sizeof(int),compare);
-  */
+
 printf("freq target is %d with numstructs %d\n",freq_target,set->opt->NUMSTRUCTS);
+  */
   for (i=0; list[i]->freq > freq_target && i < total; i++)
     partial += list[i]->freq;
   //go 1 lower, so thresholds all under start

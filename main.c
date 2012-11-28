@@ -149,14 +149,16 @@ char **args = NULL;
       opt->ALTTHRESH = 0;
   }
   if (!input) {
-    args = (char**)malloc(sizeof(char*)*6);
+    args = (char**)malloc(sizeof(char*)*8);
 	args[0] = "gtboltzmann";
 	args[1] = "-s";
 	args[2] = "1000";
 	args[3] = "-o";
 	args[4] = "output";
-	args[5] = argv[argc-1];
-	boltzmann_main(6,args);
+	args[5] = "-t";
+	args[6] = "1";
+	args[7] = argv[argc-1];
+	boltzmann_main(8,args);
   }
 
   input_seq(set,argv[argc-1]);
