@@ -1,9 +1,9 @@
 RNAStructProfiling
 
 To download source code, click on "zip" link on the RNAStructProfiling github
-page (https://github.com/gtfold/RNAStructProfiling/zipball/master).
+page (https://github.com/gtfold/RNAStructProfiling/zipball/gtboltzmann).
 
-To compile on a Unix/Linus machine, make sure the following files are in the
+To compile on a Unix/Linux machine, make sure the following files are in the
 same directory:
 --main.c
 --profile.h
@@ -17,19 +17,18 @@ same directory:
 --graph.h
 --memoryDFS.c
 --memoryDFS.h
+--libgtfold.a
+--include folder with header files
 
 Open a terminal window, navigate to the directory that contains
 the above files, and type 'make' to compile the program.
 
-To run, you will need to input 1) a sequence file, and 2) an
-sfold 'sample_1000.out' file, or any other structure file that
-lists structures in triplet notation, with the delineation
-"Structure [number]" on a separate line before every structure.
-(Included in the github repository is a sequence file and a sample
-file from ecoli5S that may be used to run the program.)
+To run, you will need to input a sequence file, and optionally a
+structure file either in sfold (using -sfold option) or in gtboltzmann 
+(using -e option) format.
 
 Usage (from within that same directory): 
-./RNAprofile [seq file] [sample file] [options]
+./RNAprofile [options] [seq file] 
 
 Common options:
 -v = verbose output that gives all helix classes and profiles with frequencies
@@ -41,3 +40,5 @@ Common options:
  profile stats)
 -o [file name] = produces the output graphviz dot file called [file name];
  'profile.dot' used by default
+-e [file] gtboltzmann style structure file as input
+-sfold [file] Sfold style structure file as input
