@@ -28,10 +28,10 @@ CC=g++
 all: RNAprofile
 
 RNAprofile: main.o hashtbl.o Set.o profile.o helix_class.o options.o graph.o memoryDFS.o Profnode.o
-	$(CC) -o RNAprofile -Wall -g $(INCLUDE) hashtbl.o main.o Set.o profile.o helix_class.o options.o graph.o memoryDFS.o profnode.o -lm -lgomp libgtfold.a -lgmp
+	$(CC) -o RNAprofile -Wall -g $(INCLUDE) hashtbl.o main.o Set.o profile.o helix_class.o options.o graph.o memoryDFS.o profnode.o -lm libgtfold.a -lgomp -lgmp
 
 main.o: main.c Set.h hashtbl.h Options.h graph.h memoryDFS.h ./include/boltzmann_main.h
-	$(CC) -o main.o -Wall -g $(INCLUDE) -c main.c -lm -lgomp libgtfold.a -lgmp
+	$(CC) -o main.o -Wall -g $(INCLUDE) -c main.c
 
 hashtbl.o: hashtbl.c hashtbl.h
 	$(CC) -o hashtbl.o -Wall -g -c hashtbl.c

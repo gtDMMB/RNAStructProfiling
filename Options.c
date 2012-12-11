@@ -37,13 +37,20 @@ void print_options() {
   puts("-l INT\t\tSet minimum helix length");
   puts("-u INT\t\tSet number of structures to profile");
   /*puts("-m INT\t\tSet PNOISE");*/
-  puts("-o NAME\t\tName of output graphviz-readable file, containing summary profile graph");
+  puts("-o NAME\t\tPrefix of output files");
   puts("-i FILE\t\tFile containing external structure to be inserted into summary profile graph");
   puts("-n FILE\t\tFile containing native structure to be inserted into summary profile graph");
   puts("-v \t\tRun in verbose mode");
   puts("-g \t\tRun without generating summary profile graph");
   puts("-t \t\tRun with top-down alternate algorithm");
   puts("-a \t\tRun with alternate threshold");
+  puts("gtboltzmann options (passed to gtboltzmann):");
+  //puts("-d, --dangle INT Restricts treatment of dangling energies (INT=0,2)");
+  puts("--limitcd  INT Set a maximum base pair contact distance to INT. If no limit is given, base pairs can be over any distance");
+  puts("--paramdir DIR   Path to directory from which parameters are to be read");
+  puts("--useSHAPE FILE  Use SHAPE constraints from FILE");
+  puts("-w, --workdir DIR    Path of directory where output files will be written");
+  puts("--sample INT Number of structures to sample");
 }
 
 void free_options(Options* opt) {
