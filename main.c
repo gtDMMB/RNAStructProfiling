@@ -11,8 +11,8 @@ using namespace std;
 
 /*input first the fasta file, then optionally the sample_1000.out file run on the fasta, then options*/
 int main(int argc, char *argv[]) {
-  int i, h, minh,p,input = 0;
-char **args = NULL;
+  int i, h, minh,p,input = 0, gtargs = 7;
+  char **args = NULL;
   HASHTBL *deleteHash;
   FILE *fp;
   Set *set;
@@ -29,15 +29,21 @@ char **args = NULL;
 	puts("\nEXAMPLES");
 	puts("1. Profile 1,000 structures sampled with gtboltzmann, default options");
 	puts("\t./RNAprofile <seq_file>");
-	puts("1. Profile 1,000 structures sampled with gtboltzmann, default options");
-	puts("\t./RNAprofile <seq_file>");
 	puts("2. Profile input structures obtained from gtboltzmann with verbose output");
 	puts("\t./RNAprofile -e <output samples file> -v <seq_file>\n");
 	exit(EXIT_FAILURE);
   } 
   set = make_Set("output.samples");
-  //set = make_Set(argv[2]);
+  /* set = make_Set(argv[2]); */
   opt = set->opt;
+  args = (char**)malloc(sizeof(char*)*12);
+  /* Set default options for gtboltzmann */
+  args[1] = "--paramdir";
+  args[2] = "./data/GTparams/";
+  args[3] = "-o";
+  args[4] = "output";
+  args[5] = "-s";
+  args[6] = "1000";
   for (i = 1; i < argc-1; i++) {
     //printf("argv[%d] is %s\n",i,argv[i]);
     if (!strcmp(argv[i],"-e")) {
@@ -114,6 +120,8 @@ char **args = NULL;
     else if (!strcmp(argv[i],"-o")) {
       if (i + 1 <= argc - 2) {
 	opt->OUTPUT = argv[i+1];
+	args[3] = argv[i];
+	args[4] = argv[i+1];
 	i++;
       }
     }
@@ -137,6 +145,54 @@ char **args = NULL;
       }
     }
 */
+
+/*
+GTBOLTZMANN OPTIONS
+
+    else if (!strcmp(argv[i],"-d" || !strcmp(argv[i],"--dangle"))) {
+      if (i + 1 <= argc - 2) {
+	if (atoi(argv[i+1]) == 0 || atoi(argv[i+1]) == 2) {
+	  args[gtargs] = argv[i];
+	  args[gtargs+1] = atoi(argv[i+1]);
+	  gtargs += 2;
+	} else {
+	  fprintf(STDERR,"Wrong arguments to -d/--dangle option: ignoring option\n");
+	}
+	i++;
+      }
+    }
+*/
+    else if (!strcmp(argv[i],"--paramdir")) {
+      if (i + 1 <= argc - 2) {
+	args[1] = argv[i];
+	args[2] = argv[i+1];
+	i++; 
+      }
+    }
+    else if (!strcmp(argv[i],"--limitcd")) {
+      if (i+1 <= argc-2) {
+	args[gtargs++] = argv[i++];
+	args[gtargs++] = argv[i];
+      }
+    }
+    else if (!strcmp(argv[i],"--useSHAPE")) {
+      if (i+1 <= argc-2) {
+	args[gtargs++] = argv[i++];
+	args[gtargs++] = argv[i];
+      }
+    }
+    else if (!strcmp(argv[i],"--sample")) {
+      if (i+1 <= argc-2) {
+	args[5] = argv[i++];
+	args[6] = argv[i++];
+      }
+    }
+    else if (!strcmp(argv[i],"-w") || !strcmp(argv[i],"--workdir")) {
+      if (i+1 <= argc-2) {
+	args[gtargs++] = argv[i++];
+	args[gtargs++] = argv[i];
+      }
+    }
     else if (!strcmp(argv[i],"-v"))
       opt->VERBOSE = 1;
     else if (!strcmp(argv[i],"-g"))
@@ -149,16 +205,9 @@ char **args = NULL;
       opt->ALTTHRESH = 0;
   }
   if (!input) {
-    args = (char**)malloc(sizeof(char*)*8);
 	args[0] = "gtboltzmann";
-	args[1] = "-s";
-	args[2] = "1000";
-	args[3] = "-o";
-	args[4] = "output";
-	args[5] = "-t";
-	args[6] = "1";
-	args[7] = argv[argc-1];
-	boltzmann_main(8,args);
+	args[gtargs] = argv[argc-1];
+	boltzmann_main(gtargs+1,args);
   }
 
   input_seq(set,argv[argc-1]);
@@ -184,7 +233,7 @@ char **args = NULL;
     if (set->opt->NUM_FHC)
       set->opt->HC_FREQ = set_num_fhc(set);
     else if (set->opt->HC_FREQ==0) 
-      set->opt->HC_FREQ = set_threshold(set,H_START);
+      set->opt->HC_FREQ = set_threshold_entropy(set);
     
     if (set->opt->VERBOSE) {
       printf("Threshold to find frequent helices: %.1f\%\n",set->opt->HC_FREQ);
@@ -204,7 +253,7 @@ char **args = NULL;
     if (set->opt->NUM_SPROF)
       set->opt->PROF_FREQ = set_num_sprof(set);
     else if (set->opt->PROF_FREQ == 0) {
-      set->opt->PROF_FREQ = set_p_threshold(set,P_START);
+      set->opt->PROF_FREQ = set_p_threshold_entropy(set);
     }
     if (set->opt->VERBOSE)
       printf("setting p to %.1f\n",set->opt->PROF_FREQ);

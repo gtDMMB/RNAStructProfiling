@@ -24,7 +24,7 @@ typedef struct node
 void init_graph(FILE *fp, Set *set); 
 void initialize(Set *set);
 void print_input(FILE *fp,Set *set);
-unsigned long binary_rep(Set *set,char *profile);
+//unsigned long binary_rep(Set *set,char *profile);
 void find_LCAs(FILE *fp,Set *set);
 int advance(int newk, int oldk);
 int not_in_sums(unsigned long num, int k,node **vertices);

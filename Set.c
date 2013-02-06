@@ -7,6 +7,7 @@
 #include "helix_class.h"
 #include "Profile.h"
 #include "Profnode.h"
+#include <math.h>
 
 static HASHTBL *bp;
 static HASHTBL *translate_hc;
@@ -440,6 +441,27 @@ int freqcompare(const void *v1, const void *v2) {
   h2 = *((HC**)v2);
   int i2 = h2->freq;
   return (i2 - i1);
+}
+
+double set_threshold_entropy(Set *set) {
+  int i=0;
+  double ent =0,frac,last=0;
+  HC **list = set->helices;
+
+  for (i=0; i < set->hc_num; i++) {
+    frac = (double)list[i]->freq/(double)set->opt->NUMSTRUCTS;
+    ent -= frac*log(frac);
+    if (frac != 1)
+      ent -= (1-frac)*log(1-frac);
+    if (ent/(i+1) >= last) {
+      last = ent/(i+1);      
+    } 
+    else {
+      set->num_fhc = i;
+      return (100*(double) list[i-1]->freq/(double) set->opt->NUMSTRUCTS);
+    }
+  }
+  return 0;
 }
 
 double set_threshold(Set *set, int start) {
@@ -1414,17 +1436,19 @@ void print_profiles(Set *set) {
   int i;
   Profile **profiles = set->profiles;
   
+  find_general_freq(set);
   qsort(profiles,set->prof_num,sizeof(Profile*),profsort); 
   for (i = 0; i < set->prof_num; i++) 
     if (set->opt->VERBOSE)
-      printf("Profile %s with freq %d\n",profiles[i]->profile,profiles[i]->freq);
+      printf("Profile %s with gen freq %d (%d)\n",profiles[i]->profile,profiles[i]->genfreq,profiles[i]->freq);
 }
 
 int profsort(const void *v1, const void *v2) {
   Profile *p1,*p2;
   p1 = *((Profile**)v1);
   p2 = *((Profile**)v2);
-  return (p2->freq - p1->freq);
+  //return (p2->genfreq + p2->freq - p1->genfreq - p1->freq);
+  return (p2->genfreq - p1->genfreq);
 }
 
 double set_num_sprof(Set *set) {
@@ -1447,6 +1471,81 @@ double set_num_sprof(Set *set) {
   set->num_sprof = set->opt->NUM_SPROF;
   marg = set->profiles[set->opt->NUM_SPROF-1]->freq;
   return (100*(double) marg/(double) set->opt->NUMSTRUCTS);
+}
+
+double set_p_threshold_entropy(Set *set) {
+  int i=0,*genfreq;
+  double ent =0,frac,last=0;
+  Profile **list = set->profiles;
+  
+  //  find_general_freq(set);
+  for (i=0; i < set->prof_num; i++) {
+    frac = (double)list[i]->genfreq/(double)set->opt->NUMSTRUCTS;
+    ent -= frac*log(frac);
+    if (frac != 1)
+      ent -= (1-frac)*log(1-frac);
+    /*using sum of gen and spec freq
+    frac = (double) list[i]->freq/(double) set->opt->NUMSTRUCTS;
+    ent -= frac*log(frac);
+    if (frac != 1)
+      ent -= (1-frac)*log(1-frac);
+    */
+    if (ent/(i+1) >= last) {
+      last = ent/(i+1);      
+    } 
+    else {
+      set->num_sprof = i;
+      return (100*(double) list[i-1]->genfreq/(double) set->opt->NUMSTRUCTS);
+    }
+  }
+  set->num_sprof = i;
+  return (100*(double) list[i-1]->genfreq/(double) set->opt->NUMSTRUCTS);
+}
+
+void find_general_freq(Set *set) {
+  int i,j,val;
+
+  //  genfreq = (int*)malloc(sizeof(int)*set->prof_num);
+  for (i = 0; i < set->prof_num-1; i++) {
+    set->profiles[i]->genfreq += set->profiles[i]->freq;
+    for (j = i+1; j < set->prof_num; j++) {
+      val = subset(set,set->profiles[i]->profile,set->profiles[j]->profile); 
+      if (val == 1)
+	set->profiles[i]->genfreq += set->profiles[j]->freq;
+      else if (val == 2)
+	set->profiles[j]->genfreq += set->profiles[i]->freq;
+    }
+  }
+}
+
+/*tests whether one profile is a subset of profile one
+returns 1 if first profile is a subset, 2 if second is ,0 if none are*/
+int subset(Set *set,char *one, char *two) {
+  unsigned long rep1,rep2;
+
+  rep1 = binary_rep(set,one);
+  rep2 = binary_rep(set,two);
+  if ((rep1 & rep2) == rep1)
+    return 1;
+  else if ((rep1 & rep2) == rep2)
+    return 2;
+
+  return 0;
+}
+
+unsigned long binary_rep(Set *set,char *profile) {
+  int i;
+  unsigned long sum = 0;
+  char *copy = mystrdup(profile),*helix;
+
+  for (helix = strtok(copy," "); helix; helix = strtok(NULL," ")) {
+    for (i = 0; i < set->num_fhc; i++) 
+      if (!strcmp(set->helices[i]->id,helix))
+	break;
+    sum += set->helices[i]->binary;
+  }
+  free(copy);
+  return sum;
 }
 
 double set_p_threshold(Set *set, int start) {
@@ -1526,7 +1625,7 @@ void select_profiles(Set *set) {
     if (coverage < target)
       cov = i+1;
     if (set->opt->VERBOSE)
-      printf("Selected profile %swith freq %d\n",prof->profile,prof->freq);
+      printf("Selected profile %swith freq %d (%d)\n",prof->profile,prof->genfreq,prof->freq);
   }
   printf("Coverage by selected profiles: %.3f\n",(double)coverage/(double)set->opt->NUMSTRUCTS);
   if (coverage < target) {

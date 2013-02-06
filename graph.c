@@ -80,7 +80,7 @@ void print_input(FILE *fp,Set *set) {
   vert = vert->neighbors[0];
   fprintf(fp,"\"%s\" [label = \"%s\\n0/0\",style=filled, fillcolor=gray60];\n",vert->label,vert->bracket);
 }
-
+/*
 unsigned long binary_rep(Set *set,char *profile) {
   int i;
   unsigned long sum = 0;
@@ -94,7 +94,7 @@ unsigned long binary_rep(Set *set,char *profile) {
   }
   return sum;
 }
-
+*/
 /* finished profiles = [0 start-1]
    present LCA to be intersected = [start oldk]
    newly generated LCA = [oldk k]
