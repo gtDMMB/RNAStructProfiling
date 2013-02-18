@@ -253,7 +253,7 @@ GTBOLTZMANN OPTIONS
     if (set->opt->NUM_SPROF)
       set->opt->PROF_FREQ = set_num_sprof(set);
     else if (set->opt->PROF_FREQ == 0) {
-      set->opt->PROF_FREQ = set_p_threshold_entropy(set);
+      set->opt->PROF_FREQ = set_p_threshold(set,P_START);
     }
     if (set->opt->VERBOSE)
       printf("setting p to %.1f\n",set->opt->PROF_FREQ);

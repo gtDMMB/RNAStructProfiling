@@ -1440,7 +1440,7 @@ void print_profiles(Set *set) {
   qsort(profiles,set->prof_num,sizeof(Profile*),profsort); 
   for (i = 0; i < set->prof_num; i++) 
     if (set->opt->VERBOSE)
-      printf("Profile %s with gen freq %d (%d)\n",profiles[i]->profile,profiles[i]->genfreq,profiles[i]->freq);
+      printf("Profile %s with freq %d (%d)\n",profiles[i]->profile,profiles[i]->freq,profiles[i]->genfreq);
 }
 
 int profsort(const void *v1, const void *v2) {
@@ -1448,7 +1448,8 @@ int profsort(const void *v1, const void *v2) {
   p1 = *((Profile**)v1);
   p2 = *((Profile**)v2);
   //return (p2->genfreq + p2->freq - p1->genfreq - p1->freq);
-  return (p2->genfreq - p1->genfreq);
+  //return (p2->genfreq - p1->genfreq);
+  return (p2->freq - p1->freq);
 }
 
 double set_num_sprof(Set *set) {
