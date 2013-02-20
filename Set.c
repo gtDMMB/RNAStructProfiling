@@ -8,6 +8,7 @@
 #include "Profile.h"
 #include "Profnode.h"
 #include <math.h>
+#include <float.h>
 
 static HASHTBL *bp;
 static HASHTBL *translate_hc;
@@ -445,7 +446,7 @@ int freqcompare(const void *v1, const void *v2) {
 
 double set_threshold_entropy(Set *set) {
   int i=0;
-  double ent =0,frac,last=0;
+  double ent =0,frac,last=0,ave;
   HC **list = set->helices;
 
   for (i=0; i < set->hc_num; i++) {
@@ -453,10 +454,12 @@ double set_threshold_entropy(Set *set) {
     ent -= frac*log(frac);
     if (frac != 1)
       ent -= (1-frac)*log(1-frac);
-    if (ent/(i+1) >= last) {
-      last = ent/(i+1);      
+    ave = ent/(double)(i+1);
+    if ((ave > last) || (fabs(ave-last) < FLT_EPSILON*2)) {
+      last = ave;      
     } 
     else {
+      printf("%f is lower than %f\n",ent/(i+1), last);
       set->num_fhc = i;
       return (100*(double) list[i-1]->freq/(double) set->opt->NUMSTRUCTS);
     }
