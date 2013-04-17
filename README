@@ -32,6 +32,7 @@ Usage (from within that same directory):
 ./RNAprofile [seq file] [sample file] [options]
 
 Common options:
+-v = verbose output that gives all helix classes and profiles with frequencies
 -h [percent] = filter out all helix classes that occur in less than [h] percent
  of the input sample structures
 -p [percent] = filter out all profiles that occur less than [p] percent of the
