@@ -39,28 +39,63 @@ void init_graph(FILE *fp, Set *set) {
     fprintf(fp,"<tr><td>%d</td><td>%s</td><td>%d</td></tr>\n",i+1,set->helices[i]->maxtrip,set->helices[i]->freq);
   }
   fprintf(fp,"</table>>, shape = plaintext, fontsize=11];\n");
+
+  for (i = 0; i < set->num_sprof; i++) 
+    fprintf(fp,"\"%s\" [shape = box];",set->profiles[i]->profile);
 }
 
 void initialize(Set *set) {
-  int i,size=1;
-  node* root;
+  int i,found=0,size=1;
+  node *root,*vert;
   char **diff;
-
-  root = createNode(" ");
-  while (set->num_sprof > ARRAYSIZE*size) size++;
+  
+  while (set->num_sprof +1 > ARRAYSIZE*size) size++;
   node **neighbors = malloc(sizeof(node*)*ARRAYSIZE*size);
   diff = malloc(sizeof(char*)*ARRAYSIZE*size);
   for (i = 0; i < set->num_sprof; i++) {
-    neighbors[i] = createNode(set->profiles[i]->profile);
+    if (set->opt->INPUT && !strcmp(set->profiles[i]->profile,set->inputnode->label)) {
+      neighbors[i] = set->inputnode;
+      found = 1;
+    }
+    else
+      neighbors[i] = createNode(set->profiles[i]->profile);
     neighbors[i]->sum = binary_rep(set,neighbors[i]->label);
     diff[i] = neighbors[i]->label;
     //printf("making %s node\n", neighbors[i]->label);
   }
+
+  root = createNode(" ");
+  if (set->opt->INPUT && !found) {
+    neighbors[i] = set->inputnode;
+    neighbors[i]->sum = binary_rep(set,neighbors[i]->label);
+    diff[i] = set->inputnode->label;
+    root->numNeighbors = set->num_sprof+1;
+  }
+   else
+    root->numNeighbors = set->num_sprof;
+
   root->neighbors = neighbors;
   root->nsize = size;
-  root->numNeighbors = set->num_sprof;
+  //root->numNeighbors = set->num_sprof;
   root->diff = diff;
   set->graph = root;
+}
+
+void print_input(FILE *fp,Set *set) {
+  node *vert;
+  
+  fprintf(fp,"\"%s\" [style=filled, fillcolor=gray60];\n",set->inputnode->label);
+  if (set->inputnode->numNeighbors == 0) return;
+  vert = set->inputnode->neighbors[0];
+  //printf("making bracket for %s\n",vert->label);
+  if (!(vert->bracket)) {
+    make_oval_bracket(vert);
+  }
+  fprintf(fp,"\"%s\" [label = \"%s\\n0/0\",style=filled, fillcolor=gray60];\n",vert->label,vert->bracket);
+  if (vert->numNeighbors == 0) return;
+  fprintf(fp,"\"%s\" -> \"%s\" [label = \"%s\", arrowhead = vee];\n",vert->label,vert->neighbors[0]->label,vert->diff[0]);
+  vert = vert->neighbors[0];
+  fprintf(fp,"\"%s\" [label = \"%s\\n0/0\",style=filled, fillcolor=gray60];\n",vert->label,vert->bracket);
 }
 
 unsigned long binary_rep(Set *set,char *profile) {
@@ -83,18 +118,19 @@ unsigned long binary_rep(Set *set,char *profile) {
    returns k, the number of vertices in graph
  */
 void find_LCAs(FILE *fp,Set *set) {
-  int new,oldk,go,start,size,k;
+  int new,oldk,go,start,size,k,cycles=0;
   unsigned long num;
   char *profile,**diff;
   node **vertices = set->graph->neighbors;
 
-  k = set->num_sprof;
+  k = set->graph->numNeighbors;
   size = set->graph->nsize;
   diff = set->graph->diff;
   start = 0;
   for (oldk = k; start != k; oldk = k) {
     for (new = start; new != oldk; new++) {
       for (go = advance(new,oldk); go != start; go = advance(go,oldk)) {
+	//printf("start is %d oldk is %d and go is %d\n",start,oldk,go);
 	num = vertices[new]->sum & vertices[go]->sum;
 	//printf("num is %u of s[%d] = %u and s[%d] = %u\n",num,new,sums[new],go,sums[go]);
 	if (not_in_sums(num,k,vertices)) {
@@ -119,10 +155,17 @@ void find_LCAs(FILE *fp,Set *set) {
 	}
 	else if (num == vertices[go]->sum)
 	  found_edge(vertices[new],vertices[go]);	  
-      } 
+      }
+      //printf("comparings against %d with end %d, vertices %d\n",new,oldk,k);
     }
     start = oldk;
+    if (++cycles == set->opt->CYCLES)
+      break;
+    //printf("Cycle %d with %d vertices\n",cycles,k);
   }
+  /*  if (set->opt->VERBOSE) 
+    printf("Total cycles %d\n",cycles);
+  */
   set->graph->neighbors = vertices;
   set->graph->diff = diff;
   set->graph->numNeighbors = k;
@@ -132,10 +175,13 @@ void find_LCAs(FILE *fp,Set *set) {
 
 //wraps around like mod function
 int advance(int new, int oldk) {
-  if (new+1 != oldk)
-    return new+1;
-  else
+  int next = new+1;
+  if (next == oldk) {
+    //qputs("returning 0\n");
     return 0;
+  }
+  else
+    return next;
 }
 
 //returns 1 if num doesn't match anything in sums up to oldk
@@ -160,8 +206,9 @@ char* convert_binary(unsigned long binary) {
     //printf("binary is %u\n",binary);
     if ((binary & 1) == 1) {
       sprintf(val,"%d",k+1);
-      if (strlen(profile)+strlen(val) > ARRAYSIZE*size-2) 
+      if (strlen(profile)+strlen(val) > ARRAYSIZE*size-2) {
 	profile = realloc(profile,sizeof(char)*ARRAYSIZE*++size);
+      }
       //printf("adding %s, with k %d, binary is %u, shifted is %u\n",table[k],k,binary,binary>>1);
       strcat(profile,val);
       strcat(profile," ");
@@ -187,7 +234,8 @@ void found_edge(node *child,node *parent) {
     if (!strcmp(parent->neighbors[i]->label,child->label)) 
       return;
   if (parent->numNeighbors >= ARRAYSIZE*parent->nsize) {
-    parent->neighbors = realloc(parent->neighbors,sizeof(node*)*ARRAYSIZE*(parent->nsize++));
+    parent->nsize++;
+    parent->neighbors = realloc(parent->neighbors,sizeof(node*)*ARRAYSIZE*parent->nsize);
     parent->diff = realloc(parent->diff,sizeof(char*)*ARRAYSIZE*parent->nsize);
   }
   else if (parent->numNeighbors == 0) {
@@ -204,14 +252,13 @@ void found_edge(node *child,node *parent) {
   //printf("Found %d is child of %d\n",child,parent);
 }
 
-void calc_gfreq(FILE *fp,Set *set) {
+ void calc_gfreq(FILE *fp,Set *set) {
   int i,j;
   unsigned long *sum;
   node *vert;
 
   GRAPHSIZE = set->graph->numNeighbors + 1;
   graph = (node**)malloc(sizeof(node*)*GRAPHSIZE);
-
   sum = malloc(sizeof(unsigned long)*set->prof_num);
   for (i = 0; i < set->prof_num; i++) {
     sum[i] = binary_rep(set,set->profiles[i]->profile);
@@ -243,6 +290,7 @@ void make_oval_bracket(node *vert) {
   char *pbrac, *cbrac,*diff,*val;
   node *child;
 
+  if (vert->bracket) return;
   child = malloc(sizeof(node));
   diff = find_child_bracket(vert,child);
 
@@ -389,9 +437,10 @@ void printGraph()
 void freeGraph()
 {
     int i;
-    for(i = 0; i < GRAPHSIZE; i++)
-    {
-        free(graph[i]->neighbors);
+    for(i = 0; i < GRAPHSIZE; i++) {
+      free(graph[i]->neighbors);
+      free(graph[i]->bracket);
+      free(graph[i]->diff);
     }
     free(graph);
 }

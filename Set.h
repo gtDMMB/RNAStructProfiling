@@ -6,6 +6,7 @@
 #include "hashtbl.h"
 #include "graph.h"
 #include "Options.h"
+#include "Profnode.h"
 
 //default value that looking for h dropoff starts at (in percent)
 #define H_START 10
@@ -20,17 +21,22 @@ typedef struct {
   char *structfile;
   int hc_size;
   int hc_num;
+  int helsum;
   int num_fhc;
   HC **helices;
-  HC **freqhelices;  //?
   int prof_size;
   int prof_num;
   int num_sprof;
   Profile **profiles;
-  Profile **freqprof;  //?
-  double h_cutoff;     //? in options already
+  Profnode ***proftree;
+  int *treeindex;
+  int treesize;
+  //Profile **freqprof;  //?
+  double h_cutoff;     //? in options already  set->inputprof = NULL;
+
   double p_cutoff;     //? in options already
   Options *opt;
+  node *inputnode;
   node *graph;
 } Set;
 
@@ -44,8 +50,21 @@ void reorder_helices(Set *set);
 int freqcompare(const void *v1, const void *v2);
 double set_threshold(Set *set, int start);
 int compare(const void *v1, const void *v2);
-void print_all_helices(Set *set);
+int print_all_helices(Set *set);
+double set_num_fhc(Set *set);
 void find_freq(Set *set);
+int top_down_h(Set *set,int minh);
+int find_kink(double *opt, int j);
+void translate(Profile *prof);
+double split(Set *set, int index);
+int nodecompare(const void *v1, const void *v2);
+int split_one(Set *set,Profnode *node,int index);
+int check_hc(char *prof, int index);
+char* convert(int *array,int length);
+int top_down_p(Set *set,int h);
+int find_kink_p(Profnode **profs,int start, int stop);
+void print_topdown_prof(Set *set, int h, int p);
+
 void make_profiles(Set *set);
 char* process_profile(HASHTBL *halfbrac,int *profile,int numhelix,Set *set);
 void make_bracket_rep(HASHTBL *brac,Profile *prof);
@@ -53,8 +72,11 @@ void make_brackets(HASHTBL *brac, int i, int j, int id);
 void make_rep_struct(HASHTBL *consensus,char *profile, char* trips);
 void print_profiles(Set *set);
 int profsort(const void *v1, const void *v2);
+double set_num_sprof(Set *set);
 double set_p_threshold(Set *set, int start);
 void select_profiles(Set *set);
+void process_one_input(Set *set);
+int* process_native(Set *set,int i, int j, int k);
 void find_consensus(Set *set);
 int print_consensus(Set *set);
 void free_Set(Set *set);
