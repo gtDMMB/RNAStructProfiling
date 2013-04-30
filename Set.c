@@ -41,6 +41,7 @@ Set* make_Set(char *name) {
   set->helsum = 0;
   set->num_fhc = 0;
   set->helices = (HC**) malloc(sizeof(HC*)*ARRAYSIZE*5);
+  //set->joint = (int**) malloc(sizeof(int**)*ARRAYSIZE*2);
   set->prof_size = 5;
   set->prof_num = 0;
   set->num_sprof = 0;
@@ -96,9 +97,9 @@ void input_seq(Set *set,char *seqfile) {
 
 void process_structs(Set *set) {
   FILE *fp;
-  int i,j,k,*helixid,idcount=1,*lg,last = 0, toosmall = 0,numhelix=0,*profile=NULL,size=1;
+  int i,j,k,*helixid,idcount=1,*lg,last = 0, toosmall = 0,numhelix=0,*profile=NULL,size=1,seqsize;
   double *trip;
-  char tmp[1000],*key,dbl[ARRAYSIZE],*max, *delim = " ,\t\n", *val;
+  char *tmp,*key,dbl[ARRAYSIZE],*max, *delim = " ,\t\n", *val;
   HASHTBL *halfbrac,*extra,*avetrip;
   HC *hc;
 
@@ -123,7 +124,9 @@ void process_structs(Set *set) {
     exit(EXIT_FAILURE);
   }
   key = (char*) malloc(sizeof(char)*ARRAYSIZE);
-  while (fgets(tmp,1000,fp)) {
+  seqsize = strlen(set->seq)*10;
+  tmp = (char*) malloc(sizeof(char)*seqsize);
+  while (fgets(tmp,seqsize,fp)) {
     val = strtok(tmp,delim);
     val = strtok(NULL,delim);
     while ((val = strtok(NULL,delim))) {
@@ -459,12 +462,26 @@ double set_threshold_entropy(Set *set) {
       last = ave;      
     } 
     else {
-      printf("%f is lower than %f\n",ent/(i+1), last);
+      //printf("%f is lower than %f\n",ent/(i+1), last);
       set->num_fhc = i;
+      init_joint(set);
       return (100*(double) list[i-1]->freq/(double) set->opt->NUMSTRUCTS);
     }
   }
   return 0;
+}
+
+/*LU array*/
+void init_joint(Set *set) {
+  int i,j,k=set->num_fhc;
+  
+  set->joint = (int**) malloc(sizeof(int*)*(k-1));
+  for (i = 0; i < k-1; i++) {
+    set->joint[i] = (int*) malloc(sizeof(int)*(k-1-i));
+    for (j = 0; j < k-1-i; j++) {
+      set->joint[i][j] = 0;
+    }
+  }
 }
 
 double set_threshold(Set *set, int start) {
@@ -714,7 +731,8 @@ void find_freq(Set *set) {
     printf("Coverage by featured helix classes: %.3f\n",cov);
 }
 
-/* Beginning of top down version of algorithm:
+/* *********************************************************************************************
+Beginning of top down version of algorithm:
 
 This function translate extended profile; split based on min fhc needed for coverage
 set->profiles populated in first pass over structure file; extended profiles
@@ -1106,17 +1124,17 @@ void print_topdown_prof(Set *set, int h, int p) {
 }
 
 /*
-
+****************************************************************************************
 End of top down approach code
 
 */
 
 void make_profiles(Set *set) {
   FILE *fp,*file;
-  int num=0,*id = 0,i,j,k,last = -1, lastfreq = -1,*profile,totalhc=0,allhelix=0;
-  int numhelix = 0,size=1,tripsize = INIT_SIZE,allbp=0,fbp=0;
+  int num=1,*id = 0,i,j,k,last = -1, lastfreq = -1,*profile,totalhc=0,allhelix=0;
+  int numhelix = 0,size=1,tripsize = INIT_SIZE,allbp=0,fbp=0,seqsize;
   double coverage=0,bpcov=0;
-  char temp[1000],val[ARRAYSIZE],*trips,*name,*prof,*sub,*delim = " ,\t\n";
+  char *temp,val[ARRAYSIZE],*trips,*name,*prof,*sub,*delim = " ,\t\n";
   HASHTBL *halfbrac;
 
   name = set->structfile;
@@ -1143,7 +1161,9 @@ void make_profiles(Set *set) {
   if (file == NULL)
     fprintf(stderr,"Error: can't open structure.out\n");
   fprintf(file,"Processing %s\n",name);
-  while (fgets(temp,1000,fp)) {
+  seqsize = strlen(set->seq)*10;
+  temp = (char*) malloc(sizeof(char)*seqsize);
+  while (fgets(temp,seqsize,fp)) {
     sub = strtok(temp,delim);
     sub = strtok(NULL,delim);
     while ((sub = strtok(NULL,delim))) {
@@ -1151,11 +1171,13 @@ void make_profiles(Set *set) {
       if ((sub = strtok(NULL,delim)))
         j = atoi(sub);
       else
-        fprintf(stderr, "Error in file input format\n");
+        fprintf(stderr, "Error in file input format, processing %s\n",sub);
       if ((sub = strtok(NULL,delim)))
         k = atoi(sub);
       else
-        fprintf(stderr, "Error in file input format\n");
+        fprintf(stderr, "Error in file input format, processing %s\n",sub);
+      if (k < set->opt->MIN_HEL_LEN) 
+	continue;
       sprintf(val,"%d %d",i,j);
       id = (int*) hashtbl_get(bp,val);
       sprintf(val,"%d",*id);
@@ -1172,6 +1194,7 @@ void make_profiles(Set *set) {
 	  if (numhelix >= ARRAYSIZE*size) 
 	    profile = (int*) realloc(profile,sizeof(int)*ARRAYSIZE*++size);
 	  profile[numhelix-1] = *id;
+	  calc_joint(set,profile,numhelix);
 	  make_brackets(halfbrac,i,j,*id);
 	  lastfreq = *id;
 	}
@@ -1187,7 +1210,7 @@ void make_profiles(Set *set) {
     }
     prof = process_profile(halfbrac,profile,numhelix,set);
     //printf("processing %d with profile %s\n",num,prof);
-    fprintf(file,"\n\t-> %s\nStructure %d: ",prof,num);
+    fprintf(file,"\n\t-> %s\nStructure %d: ",prof,num++);
      
     if (set->opt->REP_STRUCT) {
       make_rep_struct(consensus,prof,trips);
@@ -1216,6 +1239,21 @@ void make_profiles(Set *set) {
   free(profile);
   fclose(fp);
   fclose(file);
+}
+
+void calc_joint(Set *set, int *prof, int num) {
+  int k;  
+
+  if (num < 2)
+    return;
+  for (k = 0; k < num-1; k++) {
+    if (prof[k] < prof[num-1])
+      set->joint[prof[k]-1][prof[num-1]-prof[k]-1]++;
+    else
+      set->joint[prof[num-1]-1][prof[k]-prof[num-1]-1]++;
+    //if (j)
+  }
+  return;
 }
 
 void make_profiles_sfold(Set *set) {
@@ -1278,6 +1316,8 @@ void make_profiles_sfold(Set *set) {
        trips[0] = '\0';
     } 
     else if (sscanf(temp,"%d %d %d",&i,&j,&k) == 3) {
+      if (k < set->opt->MIN_HEL_LEN)
+	continue;
       sprintf(val,"%d %d",i,j);
       id = (int*) hashtbl_get(bp,val);
       sprintf(val,"%d",*id);
@@ -1431,6 +1471,26 @@ void make_rep_struct(HASHTBL *consensus,char *profile, char* trips) {
 	hashtbl_insert(ij,bpair,bpfreq);
       }
       //printf("in rep struct for %s, inserting %d %d\n",profile,i+k,j-k);      
+    }
+  }
+}
+
+void print_meta(Set *set) {
+  int i,j,k=set->num_fhc-1;
+  double cond1,cond2,thresh=0.1;
+
+  for (i=0; i < k; i++) {
+    for (j=0; j < k-i; j++) {
+      cond1 = (double)set->joint[i][j]/(double)set->helices[i+j+1]->freq;
+      cond2 = (double)set->joint[i][j]/(double)set->helices[i]->freq;
+      if (set->opt->VERBOSE) {
+	printf("p(%d|%d) = %.3f\n",i+1,i+j+2,cond1);
+	printf("p(%d|%d) = %.3f\n",i+j+2,i+1,cond2);
+      }
+      if (cond1 > 1-thresh && cond2 > 1-thresh) {
+	printf("%d AND %d\n", i+1,i+j+2);
+      } else if (cond1 < thresh && cond2 < thresh)
+	printf("%d XOR %d\n",i+1,i+j+2);
     }
   }
 }
