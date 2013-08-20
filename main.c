@@ -11,7 +11,7 @@ using namespace std;
 
 /*input first the fasta file, then optionally the sample_1000.out file run on the fasta, then options*/
 int main(int argc, char *argv[]) {
-  int i, h, minh,p,input = 0, gtargs = 7;
+  int i, h, minh,p,input = 0, gtargs = 9;
   char **args = NULL;
   HASHTBL *deleteHash;
   FILE *fp;
@@ -36,14 +36,17 @@ int main(int argc, char *argv[]) {
   set = make_Set("output.samples");
   /* set = make_Set(argv[2]); */
   opt = set->opt;
-  args = (char**)malloc(sizeof(char*)*12);
+  args = (char**)malloc(sizeof(char*)*16);
   /* Set default options for gtboltzmann */
   args[1] = "--paramdir";
   args[2] = "./data/GTparams/";
+  //args[2] = "../Desktop/share/gtfold/Turner99/";
   args[3] = "-o";
   args[4] = "output";
   args[5] = "-s";
   args[6] = "1000";
+  args[7] = "--scale";
+  args[8] = "0.0";
   for (i = 1; i < argc-1; i++) {
     //printf("argv[%d] is %s\n",i,argv[i]);
     if (!strcmp(argv[i],"-e")) {
@@ -219,47 +222,37 @@ GTBOLTZMANN OPTIONS
   minh = print_all_helices(set);
   printf("Total number of helix classes: %d\n",set->hc_num);
   
-  if (set->opt->TOPDOWN) {
-    printf("Total number of extended profiles: %d\n",set->prof_num);
-    h = top_down_h(set,minh);
-    //if (set->opt->VERBOSE)
-    printf("Number of featured helix classes: %d\n",h+1);
-    find_freq(set);
-    p = top_down_p(set,h);
-    //if (set->opt->VERBOSE)
-    printf("Number of selected profiles: %d\n",p+1);
-    print_topdown_prof(set,h,p);
-  } else {
-    if (set->opt->NUM_FHC)
-      set->opt->HC_FREQ = set_num_fhc(set);
-    else if (set->opt->HC_FREQ==0) 
-      set->opt->HC_FREQ = set_threshold_entropy(set);
-    
-    if (set->opt->VERBOSE) {
-      printf("Threshold to find frequent helices: %.1f\%\n",set->opt->HC_FREQ);
-      printf("Number of structures processed: %d\n",set->opt->NUMSTRUCTS);
-    }
-    
-    find_freq(set);
-    
-    printf("Total number of featured helix classes: %d\n",set->num_fhc);
-    if (opt->SFOLD) 
-      make_profiles_sfold(set);
-    else
-      make_profiles(set);
-    printf("Total number of profiles: %d\n",set->prof_num);
-    print_profiles(set);
-    
-    if (set->opt->NUM_SPROF)
-      set->opt->PROF_FREQ = set_num_sprof(set);
-    else if (set->opt->PROF_FREQ == 0) {
-      set->opt->PROF_FREQ = set_p_threshold(set,P_START);
-    }
-    if (set->opt->VERBOSE)
-      printf("setting p to %.1f\n",set->opt->PROF_FREQ);
-    select_profiles(set);
-    printf("Total number of selected profiles: %d\n",set->num_sprof);
+  if (set->opt->NUM_FHC)
+    set->opt->HC_FREQ = set_num_fhc(set);
+  else if (set->opt->HC_FREQ==0) 
+    set->opt->HC_FREQ = set_threshold_entropy(set);
+  
+  if (set->opt->VERBOSE) {
+    printf("Threshold to find frequent helices: %.1f\%\n",set->opt->HC_FREQ);
+    printf("Number of structures processed: %d\n",set->opt->NUMSTRUCTS);
   }
+
+  //find_bools(set);
+  find_freq(set);
+  
+  printf("Total number of featured helix classes: %d\n",set->num_fhc);
+  if (opt->SFOLD) 
+    make_profiles_sfold(set);
+  else
+    make_profiles(set);
+  printf("Total number of profiles: %d\n",set->prof_num);
+  //print_meta(set);
+  print_profiles(set);
+  if (set->opt->NUM_SPROF)
+    set->opt->PROF_FREQ = set_num_sprof(set);
+  else if (set->opt->PROF_FREQ == 0) {
+    //set->opt->PROF_FREQ = set_p_threshold(set,P_START);
+    set->opt->PROF_FREQ = set_p_threshold_entropy(set);
+  }
+  if (set->opt->VERBOSE)
+    printf("setting p to %.1f\n",set->opt->PROF_FREQ);
+  select_profiles(set);
+  printf("Total number of selected profiles: %d\n",set->num_sprof);
   
   if (set->opt->INPUT)
     process_one_input(set);
