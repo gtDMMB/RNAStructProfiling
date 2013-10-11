@@ -38,6 +38,7 @@ typedef struct {
   int helsum;
   int num_fhc;
   HC **helices;
+  int **joint;
   int prof_size;
   int prof_num;
   int num_sprof;
@@ -65,6 +66,7 @@ void addHC(Set *set, HC *hc, int idcount);
 void reorder_helices(Set *set);
 int freqcompare(const void *v1, const void *v2);
 double set_threshold_entropy(Set *set);
+void init_joint(Set *set);
 double set_threshold(Set *set, int start);
 int compare(const void *v1, const void *v2);
 int print_all_helices(Set *set);
@@ -84,10 +86,12 @@ void print_topdown_prof(Set *set, int h, int p);
 
 void make_profiles(Set *set);
 void make_profiles_sfold(Set *set);
+void calc_joint(Set *set, int *prof, int num);
 char* process_profile(HASHTBL *halfbrac,int *profile,int numhelix,Set *set);
 void make_bracket_rep(HASHTBL *brac,Profile *prof);
 void make_brackets(HASHTBL *brac, int i, int j, int id);
 void make_rep_struct(HASHTBL *consensus,char *profile, char* trips);
+void print_meta(Set *set);
 void print_profiles(Set *set);
 int profsort(const void *v1, const void *v2);
 double set_num_sprof(Set *set);
