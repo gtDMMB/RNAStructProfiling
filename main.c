@@ -250,7 +250,10 @@ GTBOLTZMANN OPTIONS
     set->opt->PROF_FREQ = set_p_threshold_entropy(set);
   }
   if (set->opt->VERBOSE)
-    printf("setting p to %.1f\n",set->opt->PROF_FREQ);
+    if (set->opt->PROF_FREQ == -1) 
+      printf("No threshold set; every profile has frequency of 1\n");
+    else
+      printf("setting p to %.1f\n",set->opt->PROF_FREQ);
   select_profiles(set);
   printf("Total number of selected profiles: %d\n",set->num_sprof);
   

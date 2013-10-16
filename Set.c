@@ -647,8 +647,8 @@ void find_freq(Set *set) {
     marg = set->helices[62]->freq;
     printf("Capping at 63 fhc with freq %d\n",marg);
     set->opt->HC_FREQ = ((double) marg)*100.0/((double)set->opt->NUMSTRUCTS);
-  } else
-    printf("Coverage by featured helix classes: %.3f\n",cov);
+  }
+  printf("Coverage by featured helix classes: %.3f\n",cov);
 }
 
 void make_profiles(Set *set) {
@@ -1041,6 +1041,8 @@ double set_num_sprof(Set *set) {
   return (100*(double) marg/(double) set->opt->NUMSTRUCTS);
 }
 
+/*If all profiles have frequency of 1, we default to displaying first 10
+ */
 double set_p_threshold_entropy(Set *set) {
   int i=0,*freq;
   double ent =0,frac,last=0,norm,ave;
@@ -1048,7 +1050,15 @@ double set_p_threshold_entropy(Set *set) {
   
   norm = (double)list[0]->freq;
   //  find_general_freq(set);
+  if (norm == 1) {
+    set->num_sprof = 10;
+    return -1;
+  }
   for (i=0; i < set->prof_num; i++) {
+    if (list[i]->freq == 1) {
+      set->num_sprof = i;
+      return (100*(double) list[i-1]->freq/(double) set->opt->NUMSTRUCTS);
+    }
     frac = (double)list[i]->freq/norm;
     ent -= frac*log(frac);
     if (frac != 1)
