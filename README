@@ -1,7 +1,7 @@
 RNAStructProfiling
 
 To download source code, click on "zip" link on the RNAStructProfiling github
-page (https://github.com/gtfold/RNAStructProfiling/zipball/gtboltzmann).
+page (https://github.com/gtfold/RNAStructProfiling/zipball/master).
 
 To compile on a Unix/Linux machine, make sure the following files are in the
 same directory:
