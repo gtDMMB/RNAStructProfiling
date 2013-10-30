@@ -4,7 +4,7 @@
 struct profnode* makeProfnode(int *prof) {
   struct profnode *profile;
 
-  profile = malloc(sizeof(Profnode));
+  profile = (struct profnode*) malloc(sizeof(Profnode));
   profile->prof = prof;
   profile->extended = NULL;
   profile->extnum = 0;

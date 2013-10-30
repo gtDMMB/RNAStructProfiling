@@ -22,38 +22,40 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # 
 
+INCLUDE = -I./include
+CC=g++
 
 all: RNAprofile
 
 RNAprofile: main.o hashtbl.o Set.o profile.o helix_class.o options.o graph.o memoryDFS.o Profnode.o
-	cc -o RNAprofile -Wall -g -lm hashtbl.o main.o Set.o profile.o helix_class.o options.o graph.o memoryDFS.o profnode.o
+	$(CC) -o RNAprofile -Wall -g $(INCLUDE) hashtbl.o main.o Set.o profile.o helix_class.o options.o graph.o memoryDFS.o profnode.o -lm  -lgomp libgtfold.a -lgmp
 
-main.o: main.c Set.h hashtbl.h Options.h graph.h memoryDFS.h
-	cc -o main.o -Wall -g -c main.c
+main.o: main.c Set.h hashtbl.h Options.h graph.h memoryDFS.h ./include/boltzmann_main.h
+	$(CC) -o main.o -Wall -g $(INCLUDE) -c main.c
 
 hashtbl.o: hashtbl.c hashtbl.h
-	cc -o hashtbl.o -Wall -g -c hashtbl.c
+	$(CC) -o hashtbl.o -Wall -g -c hashtbl.c
 
 Set.o: Set.c Set.h hashtbl.h helix_class.h Profile.h Options.h graph.h Profnode.h
-	cc -o Set.o -Wall -g -c Set.c
+	$(CC) -o Set.o -Wall -g -c -lm Set.c
 
 profile.o: Profile.c Profile.h hashtbl.h
-	cc -o profile.o -Wall -g -lm -c Profile.c
+	$(CC) -o profile.o -Wall -g -lm -c Profile.c
 
 helix_class.o: helix_class.c helix_class.h 
-	cc -o helix_class.o -Wall -g -c helix_class.c
+	$(CC) -o helix_class.o -Wall -g -c helix_class.c
 
 options.o: Options.c Options.h
-	cc -o options.o -Wall -g -c Options.c
+	$(CC) -o options.o -Wall -g -c Options.c
 
 graph.o: graph.c graph.h Set.h
-	cc -o graph.o -Wall -g -c graph.c
+	$(CC) -o graph.o -Wall -g -c graph.c
 
 memoryDFS.o: memoryDFS.c memoryDFS.h graph.h hashtbl.h
-	cc -o memoryDFS.o -Wall -g -c memoryDFS.c
+	$(CC) -o memoryDFS.o -Wall -g -c memoryDFS.c
 
 Profnode.o: Profnode.c Profnode.h
-	cc -o profnode.o -Wall -g -c Profnode.c
+	$(CC) -o profnode.o -Wall -g -c Profnode.c
 
 clean:
-	rm -f *.o main
+	rm -f *.o main RNAprofile

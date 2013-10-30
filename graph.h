@@ -3,10 +3,11 @@
 
 #define SIZE 4
 
-/* Node Struct */
+#include "Set.h"
+
+/* Node Struct 
 typedef struct node
 {
-    /*int label;*/
   char *label;
   struct node **neighbors;
   int numNeighbors;
@@ -15,25 +16,26 @@ typedef struct node
   int gfreq;
   char *bracket;
   char **diff;
-  int DFS; /* boolean value */
+  int DFS; 
   unsigned long sum;
 } node;
+*/ 
 
-node* createNode();
-void init_graph();
-void initialize();
-unsigned long binary_rep();
-void find_LCAs();
-int advance(int new, int oldk);
+void init_graph(FILE *fp, Set *set); 
+void initialize(Set *set);
+void print_input(FILE *fp,Set *set);
+//unsigned long binary_rep(Set *set,char *profile);
+void find_LCAs(FILE *fp,Set *set);
+int advance(int newk, int oldk);
 int not_in_sums(unsigned long num, int k,node **vertices);
 char* convert_binary(unsigned long binary);
 void found_edge(node *child,node *parent) ;
-void calc_gfreq();
-void removeEdges();
-void removeEdge();
+void calc_gfreq(FILE *fp,Set *set);
+void removeEdges(HASHTBL *deleteHash);
+void removeEdge(int i, int j);
 void make_oval_bracket(node *vert);
 char* find_child_bracket(node *vert, node *child);
-void print_edges();
+void print_edges(FILE *fp,Set *set);
 void printGraph();
 void freeGraph();
 

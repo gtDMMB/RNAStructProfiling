@@ -5,6 +5,7 @@
 
 typedef struct profile {
   int freq;
+  int genfreq;
   int selected;
   char *profile;
   char *bracket;

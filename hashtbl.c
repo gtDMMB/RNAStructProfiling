@@ -29,16 +29,16 @@ Retrieved from: http://en.literateprograms.org/Hash_table_(C)?oldid=16749
 #include <string.h>
 #include <stdio.h>
 
-char *mystrdup(const char *s)
+char *mystrdup(char *s)
 {
 	char *b;
-	if(!(b=malloc(strlen(s)+1))) return NULL;
+	if(!(b=(char*)malloc(strlen(s)+1))) return NULL;
 	strcpy(b, s);
 	return b;
 }
 
 
-static hash_size def_hashfunc(const char *key)
+static hash_size def_hashfunc(char *key)
 {
 	hash_size hash=0;
 	
@@ -49,13 +49,13 @@ static hash_size def_hashfunc(const char *key)
 
 
 
-HASHTBL *hashtbl_create(hash_size size, hash_size (*hashfunc)(const char *))
+HASHTBL *hashtbl_create(hash_size size, hash_size (*hashfunc)(char *))
 {
 	HASHTBL *hashtbl;
 
-	if(!(hashtbl=malloc(sizeof(HASHTBL)))) return NULL;
+	if(!(hashtbl=(HASHTBL*) malloc(sizeof(HASHTBL)))) return NULL;
 
-	if(!(hashtbl->nodes=calloc(size, sizeof(struct hashnode_s*)))) {
+	if(!(hashtbl->nodes=(hashnode_s**) calloc(size, sizeof(struct hashnode_s*)))) {
 		free(hashtbl);
 		return NULL;
 	}
@@ -95,7 +95,7 @@ void hashtbl_destroy(HASHTBL *hashtbl)
 }
 
 
-int hashtbl_insert(HASHTBL *hashtbl, const char *key, void *data)
+int hashtbl_insert(HASHTBL *hashtbl, char *key, void *data)
 {
 	struct hashnode_s *node;
 	hash_size hash=hashtbl->hashfunc(key)%hashtbl->size;
@@ -112,7 +112,7 @@ int hashtbl_insert(HASHTBL *hashtbl, const char *key, void *data)
 		node=node->next;
 	}
 
-	if(!(node=malloc(sizeof(struct hashnode_s)))) return -1;
+	if(!(node=(struct hashnode_s*)malloc(sizeof(struct hashnode_s)))) return -1;
 	if(!(node->key=mystrdup(key))) {
 		free(node);
 		return -1;
@@ -121,7 +121,7 @@ int hashtbl_insert(HASHTBL *hashtbl, const char *key, void *data)
 	node->next=hashtbl->nodes[hash];
 	hashtbl->nodes[hash]=node;
 	
-	temp = malloc(sizeof(KEY));
+	temp = (KEY*) malloc(sizeof(KEY));
 	temp->data = mystrdup(key);
 	temp->next = hashtbl->begin;
 	hashtbl->begin = temp;
@@ -131,7 +131,7 @@ int hashtbl_insert(HASHTBL *hashtbl, const char *key, void *data)
 }
 
 
-int hashtbl_remove(HASHTBL *hashtbl, const char *key)
+int hashtbl_remove(HASHTBL *hashtbl, char *key)
 {
 	struct hashnode_s *node, *prevnode=NULL;
 	hash_size hash=hashtbl->hashfunc(key)%hashtbl->size;
@@ -167,7 +167,7 @@ int hashtbl_remove(HASHTBL *hashtbl, const char *key)
 }
 
 
-void *hashtbl_get(HASHTBL *hashtbl, const char *key)
+void *hashtbl_get(HASHTBL *hashtbl, char *key)
 {
 	struct hashnode_s *node;
 	if (!hashtbl) fprintf(stderr, "hashtbl doesn't exist\n");
@@ -201,7 +201,7 @@ int hashtbl_resize(HASHTBL *hashtbl, hash_size size)
 	newtbl.size=size;
 	newtbl.hashfunc=hashtbl->hashfunc;
 
-	if(!(newtbl.nodes=calloc(size, sizeof(struct hashnode_s*)))) return -1;
+	if(!(newtbl.nodes=(struct hashnode_s**) calloc(size, sizeof(struct hashnode_s*)))) return -1;
 
 	for(n=0; n<hashtbl->size; ++n) {
 		for(node=hashtbl->nodes[n]; node; node=next) {
