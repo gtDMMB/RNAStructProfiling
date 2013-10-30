@@ -4,7 +4,7 @@
 
 Options* make_options() {
   Options *opt = (Options*) malloc(sizeof(Options));
-  opt->OUTPUT = DEF_OUTPUT;
+  opt->OUTPUT = (char*) DEF_OUTPUT;
   opt->INPUT = NULL;
   opt->NATIVE = NULL;
   opt->MIN_HEL_LEN = DEF_MIN_HEL_LEN;

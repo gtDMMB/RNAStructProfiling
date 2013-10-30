@@ -47,7 +47,7 @@ void initialize(Set *set) {
     //printf("making %s node\n", neighbors[i]->label);
   }
 
-  root = createNode(" ");
+  root = createNode((char*)" ");
   if (set->opt->INPUT && !found) {
     neighbors[i] = set->inputnode;
     neighbors[i]->sum = binary_rep(set,neighbors[i]->label);
@@ -189,7 +189,7 @@ char* convert_binary(unsigned long binary) {
     //printf("binary is %u\n",binary);
     if ((binary & 1) == 1) {
       sprintf(val,"%d",k+1);
-      if (strlen(profile)+strlen(val) > ARRAYSIZE*size-2) {
+      if (strlen(profile)+strlen(val) > (unsigned int)ARRAYSIZE*size-2) {
 	profile = (char*) realloc(profile,sizeof(char)*ARRAYSIZE*++size);
       }
       //printf("adding %s, with k %d, binary is %u, shifted is %u\n",table[k],k,binary,binary>>1);
@@ -291,7 +291,7 @@ void make_oval_bracket(node *vert) {
   val = (char*) malloc(sizeof(char)*ARRAYSIZE);
   cbrac = child->bracket;
   pbrac[0] = '\0';
-  for (j = 0; j < strlen(cbrac); j++) {
+  for (j = 0; (unsigned int) j < strlen(cbrac); j++) {
     if (cbrac[j] == '[') {
       for (k=0; k < i; k++)
 	if (df[k] == helices[h])
@@ -393,7 +393,8 @@ void removeEdge(int i, int j) {
     probe = j;
     while(probe < root->numNeighbors - 1) {
       root->neighbors[probe] = root->neighbors[probe+1];
-      root->diff[probe] = root->diff[++probe];
+      root->diff[probe] = root->diff[probe+1];
+      probe++;
     }
   }
   root->numNeighbors--;

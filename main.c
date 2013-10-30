@@ -11,7 +11,7 @@ using namespace std;
 
 /*input first the fasta file, then optionally the sample_1000.out file run on the fasta, then options*/
 int main(int argc, char *argv[]) {
-  int i, h, minh,p,input = 0, gtargs = 9;
+  int i,minh,input = 0, gtargs = 9;
   char **args = NULL;
   HASHTBL *deleteHash;
   FILE *fp;
@@ -33,20 +33,20 @@ int main(int argc, char *argv[]) {
 	puts("\t./RNAprofile -e <output samples file> -v <seq_file>\n");
 	exit(EXIT_FAILURE);
   } 
-  set = make_Set("output.samples");
+  set = make_Set((char*)"output.samples");
   /* set = make_Set(argv[2]); */
   opt = set->opt;
   args = (char**)malloc(sizeof(char*)*16);
   /* Set default options for gtboltzmann */
-  args[1] = "--paramdir";
-  args[2] = "./data/GTparams/";
-  //args[2] = "../Desktop/share/gtfold/Turner99/";
-  args[3] = "-o";
-  args[4] = "output";
-  args[5] = "-s";
-  args[6] = "1000";
-  args[7] = "--scale";
-  args[8] = "0.0";
+  args[1] = (char*)"--paramdir";
+  args[2] = (char*)"./data/GTparams/";
+  //args[2] = (char*)"../Desktop/share/gtfold/Turner99/";
+  args[3] = (char*)"-o";
+  args[4] = (char*)"output";
+  args[5] = (char*)"-s";
+  args[6] = (char*)"1000";
+  args[7] = (char*)"--scale";
+  args[8] = (char*)"0.0";
   for (i = 1; i < argc-1; i++) {
     //printf("argv[%d] is %s\n",i,argv[i]);
     if (!strcmp(argv[i],"-e")) {
@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
       }
     }
     else if (!strcmp(argv[i],"-h")) {
-      if ((i + 1 <= argc - 2) && sscanf(argv[i+1],"%f",&(opt->HC_FREQ))) {
+      if ((i + 1 <= argc - 2) && sscanf(argv[i+1],"%lf",&(opt->HC_FREQ))) {
 	opt->HC_FREQ = atof(argv[i+1]);
 	if (opt->HC_FREQ < 0 || opt->HC_FREQ > 100) {
 	  fprintf(stderr,"Error: invalid input %f for frequency threshold\n",opt->HC_FREQ);
@@ -75,17 +75,17 @@ int main(int argc, char *argv[]) {
       }
     }
     else if (!strcmp(argv[i],"-p")) {
-      if ((i + 1 <= argc - 2) && sscanf(argv[i+1],"%f",&(opt->PROF_FREQ))) {
+      if ((i + 1 <= argc - 2) && sscanf(argv[i+1],"%lf",&(opt->PROF_FREQ))) {
 	opt->PROF_FREQ = atof(argv[i+1]);
 	if (opt->PROF_FREQ < 0 || opt->PROF_FREQ > 100) {
-	  fprintf(stderr,"Error: invalid input %f for frequency threshold\n",opt->PROF_FREQ);
+	  fprintf(stderr,"Error: invalid input %lf for frequency threshold\n",opt->PROF_FREQ);
 	  opt->PROF_FREQ = 0;
 	}
 	i++;
       }
     }
     else if (!strcmp(argv[i],"-c")) {
-      if ((i + 1 <= argc - 2) && sscanf(argv[i+1],"%f",&(opt->COVERAGE))) {
+      if ((i + 1 <= argc - 2) && sscanf(argv[i+1],"%lf",&(opt->COVERAGE))) {
 	opt->COVERAGE = atof(argv[i+1]);
 	i++;
       }
@@ -208,7 +208,7 @@ GTBOLTZMANN OPTIONS
       opt->ALTTHRESH = 0;
   }
   if (!input) {
-	args[0] = "gtboltzmann";
+	args[0] = (char*)"gtboltzmann";
 	args[gtargs] = argv[argc-1];
 	boltzmann_main(gtargs+1,args);
   }
@@ -228,7 +228,7 @@ GTBOLTZMANN OPTIONS
     set->opt->HC_FREQ = set_threshold_entropy(set);
   
   if (set->opt->VERBOSE) {
-    printf("Threshold to find frequent helices: %.1f\%\n",set->opt->HC_FREQ);
+    printf("Threshold to find frequent helices: %.1lf%%\n",set->opt->HC_FREQ);
     printf("Number of structures processed: %d\n",set->opt->NUMSTRUCTS);
   }
 
@@ -249,11 +249,12 @@ GTBOLTZMANN OPTIONS
     //set->opt->PROF_FREQ = set_p_threshold(set,P_START);
     set->opt->PROF_FREQ = set_p_threshold_entropy(set);
   }
-  if (set->opt->VERBOSE)
-    if (set->opt->PROF_FREQ == -1) 
+  if (set->opt->VERBOSE) {
+    if (set->opt->PROF_FREQ == -1) {
       printf("No threshold set; every profile has frequency of 1\n");
-    else
+    } else
       printf("setting p to %.1f\n",set->opt->PROF_FREQ);
+  }
   select_profiles(set);
   printf("Total number of selected profiles: %d\n",set->num_sprof);
   

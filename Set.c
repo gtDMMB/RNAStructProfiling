@@ -33,8 +33,6 @@ node* createNode(char *name)
 }
 
 Set* make_Set(char *name) {
-  int i;
-
   Set *set = (Set*) malloc(sizeof(Set));
   set->seq = NULL;
   set->structfile = name;
@@ -66,9 +64,9 @@ Set* make_Set(char *name) {
 void input_seq(Set *set,char *seqfile) {
   FILE * fp;
   int size = 5,fasta = 0;
-  char temp[100],*blank = " \n",*part,*final;
+  char temp[100],*blank = (char*)" \n",*part,*final;
 
-  fp = fopen(seqfile,"r");
+  fp = fopen(seqfile,(char*)"r");
   if (fp == NULL) {
     fprintf(stderr, "can't open %s\n",seqfile);
   }
@@ -88,15 +86,15 @@ void input_seq(Set *set,char *seqfile) {
       continue;
     } 
     for (part = strtok(temp,blank); part; part = strtok(NULL,blank)) {
-      if (strlen(final)+strlen(part) > ARRAYSIZE*size-1) {
-	while (++size*ARRAYSIZE - 1 < strlen(final)+strlen(part)) ;
+      if (strlen(final)+strlen(part) > (unsigned int)ARRAYSIZE*size-1) {
+	while ((unsigned int)(++size*ARRAYSIZE - 1) < strlen(final)+strlen(part)) ;
 	final = (char*) realloc(final,sizeof(char)*ARRAYSIZE*size);
       }
       final = strcat(final,part);
     }
   }
   if (set->opt->VERBOSE) 
-    printf("seq in %s is %s with length %d\n",seqfile,final,strlen(final));
+    printf("seq in %s is %s with length %o\n",seqfile,final,(unsigned int)strlen(final));
   //printf("final char is %c\n",final[strlen(final)-1]);
   set->seq = final;
 }
@@ -105,11 +103,11 @@ void process_structs(Set *set) {
   FILE *fp;
   int i,j,k,*helixid,idcount=1,*lg,last = 0, toosmall = 0,numhelix=0,*profile=NULL,size=1,seqsize;
   double *trip;
-  char *tmp,*key,dbl[ARRAYSIZE],*max, *delim = " ,\t\n", *val;
+  char *tmp,*key,dbl[ARRAYSIZE],*max, *delim = (char*)" ,\t\n", *val;
   HASHTBL *halfbrac,*extra,*avetrip;
   HC *hc;
 
-  fp = fopen(set->structfile,"r");
+  fp = fopen(set->structfile,(char*)"r");
   if (fp == NULL) {
     fprintf(stderr, "can't open %s\n",set->structfile);
   }
@@ -421,7 +419,7 @@ int match(int i,int j,char *seq) {
   char l,r;
   if (i >= j) return 0;
   if (i < 1) return 0;
-  if (j > strlen(seq)) return 0;
+  if ((unsigned int) j > strlen(seq)) return 0;
   l = seq[i-1];
   r = seq[j-1];
   //printf("l(%d) is %c and r(%d) is %c\n",i,l,j,r);
@@ -656,7 +654,7 @@ void make_profiles(Set *set) {
   int num=1,*id = 0,i,j,k,last = -1, lastfreq = -1,*profile,totalhc=0,allhelix=0;
   int numhelix = 0,size=1,tripsize = INIT_SIZE,allbp=0,fbp=0,seqsize;
   double coverage=0,bpcov=0;
-  char *temp,val[ARRAYSIZE],*trips,*name,*prof,*sub,*delim = " ,\t\n";
+  char *temp,val[ARRAYSIZE],*trips,*name,*prof,*sub,*delim = (char*)" ,\t\n";
   HASHTBL *halfbrac;
 
   name = set->structfile;
@@ -726,7 +724,7 @@ void make_profiles(Set *set) {
       }
       if (set->opt->REP_STRUCT) {
 	sprintf(val,"%d %d %d ",i,j,k);
-	while (strlen(trips)+strlen(val) > (ARRAYSIZE*tripsize-1))
+	while (strlen(trips)+strlen(val) > (unsigned int)(ARRAYSIZE*tripsize-1))
 	  trips = (char*) realloc(trips,sizeof(char)*++tripsize*ARRAYSIZE);
 	strcat(trips,val);
       }
@@ -867,7 +865,7 @@ void make_profiles_sfold(Set *set) {
       }
       if (set->opt->REP_STRUCT) {
 	sprintf(val,"%d %d %d ",i,j,k);
-	while (strlen(trips)+strlen(val) > (ARRAYSIZE*tripsize-1))
+	while (strlen(trips)+strlen(val) > (unsigned int)(ARRAYSIZE*tripsize-1))
 	  trips = (char*) realloc(trips,sizeof(char)*++tripsize*ARRAYSIZE);
 	strcat(trips,val);
       }
@@ -896,7 +894,7 @@ char* process_profile(HASHTBL *halfbrac,int *profile,int numhelix,Set *set) {
   dup[0] = '\0';
   for (i = 0; i < numhelix; i++) {
     sprintf(val,"%d ",profile[i]);
-    if (strlen(dup) + strlen(val) >= ARRAYSIZE*size-1) {
+    if (strlen(dup) + strlen(val) >= (unsigned int) ARRAYSIZE*size-1) {
       dup = (char*) realloc(dup,sizeof(char)*ARRAYSIZE*++size);
     }
     dup = strcat(dup,val);
@@ -969,7 +967,7 @@ void make_brackets(HASHTBL *brac, int i, int j, int id) {
 
 void make_rep_struct(HASHTBL *consensus,char *profile, char* trips) {
   int *bpfreq,i,j,k;
-  char *val,*blank = " ",bpair[ARRAYSIZE];
+  char *val,*blank = (char*)" ",bpair[ARRAYSIZE];
   HASHTBL *ij;
   
   ij = (HASHTBL*) hashtbl_get(consensus,profile);
@@ -1044,7 +1042,7 @@ double set_num_sprof(Set *set) {
 /*If all profiles have frequency of 1, we default to displaying first 10
  */
 double set_p_threshold_entropy(Set *set) {
-  int i=0,*freq;
+  int i=0;
   double ent =0,frac,last=0,norm,ave;
   Profile **list = set->profiles;
   
@@ -1274,24 +1272,24 @@ void process_one_input(Set *set) {
       native[0]='\0';
     }
     sprintf(tmp,"%d ",prof[i]);
-    if (strlen(tmp)+strlen(native)+1 > ARRAYSIZE*size)
+    if (strlen(tmp)+strlen(native)+1 > (unsigned int) ARRAYSIZE*size)
       native = (char*) realloc(native,sizeof(char)*ARRAYSIZE*++size);
     native = strcat(native,tmp);
   }
   diff = mystrdup(native);
   if (!profile) {
     profile = (char*) malloc(sizeof(char));
-    profile = "";
+    profile = (char*)"";
   }
   if (!diffn) {
     diffn = diff;
-    diff = "";
+    diff = (char*)"";
   }
 
   //printf("native %s%s%s(%d), fullprofile %s%s(%d), profile %s(%d)\n",profile,diffn,diff,natnum,profile,diffn,fullnum,profile,numhelix);
   
   /*making data structure*/
-  while (strlen(profile)+strlen(diffn)+strlen(diff)+1 > ARRAYSIZE*size)
+  while (strlen(profile)+strlen(diffn)+strlen(diff)+1 > (unsigned int) ARRAYSIZE*size)
     native = (char*) realloc(native,sizeof(char)*ARRAYSIZE*++size);
   sprintf(native,"%s%s%s",profile,diffn,diff);
   fullprofile = (char*) malloc(strlen(native));
@@ -1392,7 +1390,7 @@ void find_consensus(Set *set) {
 //in ct format
 int print_consensus(Set *set) {
   int l,k=0,m,seqlen;
-  char outfile[ARRAYSIZE],key[ARRAYSIZE],*pair,*i,*j,*blank = " ";
+  char outfile[ARRAYSIZE],key[ARRAYSIZE],*pair,*i,*j,*blank = (char*)" ";
   KEY *bpnode;
   HASHTBL *bpairs,*temp;
   FILE *fp;
