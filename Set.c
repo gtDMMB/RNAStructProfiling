@@ -94,7 +94,7 @@ void input_seq(Set *set,char *seqfile) {
     }
   }
   if (set->opt->VERBOSE) 
-    printf("seq in %s is %s with length %o\n",seqfile,final,(unsigned int)strlen(final));
+    printf("seq in %s is %s with length %d\n",seqfile,final,(signed int)strlen(final));
   //printf("final char is %c\n",final[strlen(final)-1]);
   set->seq = final;
 }
