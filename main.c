@@ -12,7 +12,7 @@ using namespace std;
 /*input first the fasta file, then optionally the sample_1000.out file run on the fasta, then options*/
 int main(int argc, char *argv[]) {
   int i,minh,input = 0, gtargs = 9;
-  char **args = NULL;
+  char **args = NULL, *name;
   HASHTBL *deleteHash;
   FILE *fp;
   Set *set;
@@ -123,6 +123,8 @@ int main(int argc, char *argv[]) {
     else if (!strcmp(argv[i],"-o")) {
       if (i + 1 <= argc - 2) {
 	opt->OUTPUT = argv[i+1];
+	name = mystrdup(argv[i+1]);
+	set->structfile = strcat(name,".samples");
 	args[3] = argv[i];
 	args[4] = argv[i+1];
 	i++;
