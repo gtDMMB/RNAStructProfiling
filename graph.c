@@ -24,18 +24,45 @@ void init_graph(FILE *fp, Set *set) {
   fprintf(fp,"</table>>, shape = plaintext, fontsize=11];\n");
 
   for (i = 0; i < set->num_sprof; i++) 
-    fprintf(fp,"\"%s\" [shape = box];",set->profiles[i]->profile);
+    fprintf(fp,"\"%s\" [shape = box];\n",set->profiles[i]->profile);
 }
 
-void initialize(Set *set) {
-  int i,found=0,size=1;
+int initialize(Set *set) {
+  int i,j,k,found=0,size=1;
   node *root;
-  char **diff;
+  char **diff,*rt,*num;
+  
+  for (j = 0; j < set->hc_num; j++) {
+    if (set->helices[j]->freq < set->opt->NUMSTRUCTS)
+      break;
+  }
+  if (j>0) {
+    //assuming <100 always helices
+    rt = (char*)malloc(sizeof(char)*j*3);
+    sprintf(rt,"%d ",1);
+    for (k=1; k<j; k++) {
+      num = (char*)malloc(sizeof(char)*3);
+      sprintf(num,"%d ",k+1);
+      strcat(rt,num);
+    }
+    root = createNode(rt);
+    root->sum = binary_rep(set,root->label);
+  } else
+    root = createNode((char*)"");
+  for (i = 0; i < set->prof_num; i++) 
+    if (!strcmp(root->label,set->profiles[i]->profile)) 
+      root->sfreq = set->profiles[i]->freq;
   
   while (set->num_sprof +1 > ARRAYSIZE*size) size++;
   node **neighbors = (node**)malloc(sizeof(node*)*ARRAYSIZE*size);
   diff = (char**)malloc(sizeof(char*)*ARRAYSIZE*size);
   for (i = 0; i < set->num_sprof; i++) {
+    /*
+    if (!strcmp(root->label,set->profiles[i]->profile)) {
+      root->sfreq = set->profiles[i]->freq;
+      continue;
+    }
+    */
     if (set->opt->INPUT && !strcmp(set->profiles[i]->profile,set->inputnode->label)) {
       neighbors[i] = set->inputnode;
       found = 1;
@@ -43,11 +70,12 @@ void initialize(Set *set) {
     else
       neighbors[i] = createNode(set->profiles[i]->profile);
     neighbors[i]->sum = binary_rep(set,neighbors[i]->label);
-    diff[i] = neighbors[i]->label;
-    //printf("making %s node\n", neighbors[i]->label);
+    if (j>0) { //create labels from root, offset past root
+      diff[i] = rm_root(j,neighbors[i]->label);
+    } else
+      diff[i] = neighbors[i]->label;
   }
-
-  root = createNode((char*)" ");
+  //  root = createNode((char*)" ");
   if (set->opt->INPUT && !found) {
     neighbors[i] = set->inputnode;
     neighbors[i]->sum = binary_rep(set,neighbors[i]->label);
@@ -62,6 +90,22 @@ void initialize(Set *set) {
   //root->numNeighbors = set->num_sprof;
   root->diff = diff;
   set->graph = root;
+  return j;
+}
+
+//removes first j helices from label
+char* rm_root(int j, char* label) {
+  int k,size;
+  char *num, *val;
+  k = 1;
+  size = 0;
+  num = mystrdup(label);
+  for (val = strtok(num," "); val; val = strtok(NULL," ")) {
+    size += strlen(val)+1;
+    //printf("%s: val is %s and num %s\n",label,val,num+size);
+    if (++k > j) break;
+  }
+  return num+size;
 }
 
 void print_input(FILE *fp,Set *set) {
@@ -100,7 +144,7 @@ unsigned long binary_rep(Set *set,char *profile) {
    newly generated LCA = [oldk k]
    returns k, the number of vertices in graph
  */
-void find_LCAs(FILE *fp,Set *set) {
+void find_LCAs(FILE *fp,Set *set, int i) {
   int newk, oldk, go, start, size, k, cycles=0;
   unsigned long num;
   char *profile,**diff;
@@ -127,7 +171,10 @@ void find_LCAs(FILE *fp,Set *set) {
 	  }
 	  vertices[k] = createNode(profile);
 	  vertices[k]->sum = num;
-	  diff[k] = profile;
+	  if (i>0) 
+	    diff[k] = rm_root(i,profile);
+	  else 
+	    diff[k] = profile;
 	  //printf("k is %d\n",k);
 
 	  found_edge(vertices[newk],vertices[k]);	  
@@ -152,6 +199,7 @@ void find_LCAs(FILE *fp,Set *set) {
   set->graph->neighbors = vertices;
   set->graph->diff = diff;
   set->graph->numNeighbors = k;
+  if (set->graph->sfreq == 0) k++;
   printf("Total number of vertices: %d\n",k);
   set->graph->nsize = size;
 }
@@ -264,8 +312,14 @@ void found_edge(node *child,node *parent) {
       make_oval_bracket(vert);
     fprintf(fp,"\"%s\" [label = \"%s\\n%d/%d\"];\n",vert->label,vert->bracket,vert->sfreq,vert->gfreq);
   }
-  fprintf(fp,"\" \" [label = \"%d/%d\"];\n",set->graph->sfreq,set->opt->NUMSTRUCTS);
-  graph[i] = set->graph;
+  //if (set->graph->sfreq == 0) {
+    if (!strcmp(set->graph->label,""))
+      set->graph->bracket = (char*)"[]";
+    else
+      make_oval_bracket(set->graph);
+    fprintf(fp,"\"%s\" [label = \"%s\\n%d/%d\"];\n",set->graph->label,set->graph->bracket,set->graph->sfreq,set->opt->NUMSTRUCTS);
+    graph[i] = set->graph;
+    //}
 }
 
 void make_oval_bracket(node *vert) {

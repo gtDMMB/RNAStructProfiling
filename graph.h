@@ -22,10 +22,11 @@ typedef struct node
 */ 
 
 void init_graph(FILE *fp, Set *set); 
-void initialize(Set *set);
+int initialize(Set *set);
+char* rm_root(int j, char* label);
 void print_input(FILE *fp,Set *set);
 //unsigned long binary_rep(Set *set,char *profile);
-void find_LCAs(FILE *fp,Set *set);
+void find_LCAs(FILE *fp,Set *set,int i);
 int advance(int newk, int oldk);
 int not_in_sums(unsigned long num, int k,node **vertices);
 char* convert_binary(unsigned long binary);

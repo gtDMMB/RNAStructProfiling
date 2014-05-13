@@ -270,10 +270,10 @@ GTBOLTZMANN OPTIONS
   if (set->opt->GRAPH) {
     fp = fopen(set->opt->OUTPUT,"w");
     init_graph(fp,set);
-    initialize(set);
+    i = initialize(set);
     if (set->opt->INPUT)
       print_input(fp,set);
-    find_LCAs(fp,set);
+    find_LCAs(fp,set,i);
     calc_gfreq(fp,set);
     //printGraph();
     deleteHash = MemoryDFS(set->graph);
