@@ -1,7 +1,21 @@
 RNAStructProfiling
 
+Compiler dependencies: To compile and install RNAStructProfiling, you will need
+--a C/C++ compiler
+--autotools
+--GMP (version 6.0.0 from gmplib.org)
+Parallelization requirements: For parallelization, the compiler needs to implement the OpenMP API.
+(GNU gcc 4.7, for example, implements the OpenMP API. See http://openmp.org/wp/openmp-compilers for details.)
+
 To download source code, click on "zip" link on the RNAStructProfiling github
 page (https://github.com/gtfold/RNAStructProfiling/zipball/gtboltzmann).
+
+To compile on a Mac OSX machine, make sure your dependencies are satisfied.
+(The easiest way to satisfy dependencies is to install Xcode command line tools,
+the gcc compiler 4.7 or higher using MacPorts, and possibly GMP 6.0.0 if needed.)
+Rename
+libgtfold_osx.a -> libgtfold.a
+and follow the rest of directions.
 
 To compile on a Unix/Linux machine, make sure the following files are in the
 same directory:
