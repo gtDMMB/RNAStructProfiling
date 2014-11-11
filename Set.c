@@ -750,11 +750,11 @@ void make_profiles(Set *set) {
     if (set->opt->REP_STRUCT)
       trips[0] = '\0';
   }
-  process_profile(halfbrac,profile,numhelix,set);
- //fprintf(file,"Structure %d: %s\n",num,profile);
+  if (set->opt->VERBOSE) {
   printf("Ave number of HC per structure: %.1f\n",(double)totalhc/(double) set->opt->NUMSTRUCTS);
   printf("Ave structure coverage by fhc: %.2f\n",coverage/(double)set->opt->NUMSTRUCTS);
   printf("Ave structure coverage by fbp: %.2f\n",bpcov/(double)set->opt->NUMSTRUCTS);
+	}
   free(profile);
   fclose(fp);
   fclose(file);
@@ -1050,7 +1050,7 @@ double set_p_threshold_entropy(Set *set) {
   //  find_general_freq(set);
   if (norm == 1) {
     set->num_sprof = 10;
-    return -1;
+    return -2;
   }
   for (i=0; i < set->prof_num; i++) {
     if (list[i]->freq == 1) {
@@ -1179,19 +1179,22 @@ double set_p_threshold(Set *set, int start) {
   return (100*(double) list[index-1]->freq/(double) set->opt->NUMSTRUCTS);
 }
 
-//can eliminate this function if necessary
 void select_profiles(Set *set) {
   int i,coverage=0,cov=0,target;
   //double percent;
   Profile *prof;
 
-  //in case we select everything
-  //set->num_sprof = set->prof_num;
+  if (set->num_sprof == 0) 
+	set->num_sprof = set->prof_num;
   target = set->opt->COVERAGE*set->opt->NUMSTRUCTS;
   for (i = 0; i < set->num_sprof; i++) {
     prof = set->profiles[i];
     //percent = ((double) prof->freq)*100.0 / ((double)set->opt->NUMSTRUCTS);
     //printf("%s has percent %.1f\n",node->data,percent);
+    if (((double)prof->freq*100.0/((double)set->opt->NUMSTRUCTS)) < set->opt->PROF_FREQ) {
+	set->num_sprof = i;
+	break;
+    }
     prof->selected = 1;
     coverage += prof->freq;
     if (coverage < target)

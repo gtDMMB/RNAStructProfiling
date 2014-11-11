@@ -10,10 +10,10 @@ Options* make_options() {
   opt->MIN_HEL_LEN = DEF_MIN_HEL_LEN;
   opt->NUM_FHC = 0;
   opt->NUM_SPROF = 0;
-  opt->HC_FREQ = 0;
+  opt->HC_FREQ = -1;
   opt->VERBOSE = 0;
   opt->SFOLD = 0;
-  opt->PROF_FREQ = 0;
+  opt->PROF_FREQ = -1;
   opt->COVERAGE = 0.5;
   opt->NUMSTRUCTS = 0;
   opt->PNOISE = 5;
@@ -27,10 +27,10 @@ Options* make_options() {
 
 void print_options() {
   puts("OPTIONS");
-  puts("-e [FILE]\t\tExternal structure as input, following gtboltzmann format (dot bracket, energy, set of triplets on same line)");
+  puts("-e [FILE]\tExternal structure as input, following gtboltzmann format (dot bracket, energy, set of triplets on same line)");
   puts("-sfold [FILE]\tExternal structure as input, following Sfold format ('Structure xx' followed by a triplet per line");
-  puts("-h DBL\t\tSet frequency threshold for featured helix class (in percentage)");
-  puts("-p DBL\t\tSet frequency threshold for selected profiles (in percentage)");
+  puts("-h DBL\t\tSet frequency threshold for features(in percentage, e.g. 10.5 for 10.5% threshold)");
+  puts("-p DBL\t\tSet frequency threshold for selected profiles (in percentage, e.g. 10.5 for 10.5% threshold)");
   puts("-c DBL\t\tSet minimum coverage requirement for featured helix classes and selected profiles (in percentage)");
   puts("-f INT\t\tSet number of featured helix classes");
   puts("-s INT\t\tSet number of selected profiles");
@@ -42,8 +42,8 @@ void print_options() {
   puts("-n FILE\t\tFile containing native structure to be inserted into summary profile graph");
   puts("-v \t\tRun in verbose mode");
   puts("-g \t\tRun without generating summary profile graph");
-  puts("-t \t\tRun with top-down alternate algorithm");
-  puts("-a \t\tRun with alternate threshold");
+  //puts("-t \t\tRun with top-down alternate algorithm");
+  //puts("-a \t\tRun with alternate threshold");
   puts("gtboltzmann options (passed to gtboltzmann):");
   //puts("-d, --dangle INT Restricts treatment of dangling energies (INT=0,2)");
   puts("--limitcd  INT Set a maximum base pair contact distance to INT. If no limit is given, base pairs can be over any distance");
