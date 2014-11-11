@@ -442,11 +442,13 @@ void addHC(Set *set, HC *hc, int idcount) {
     set->hc_size++;
     k = set->hc_size;
     set->helices = (HC**) realloc(set->helices, sizeof(HC*)*ARRAYSIZE*k);
-    set->joint = (int**) realloc(set->joint, sizeof(int*)*ARRAYSIZE*k);
+    /*set->joint = (int**) realloc(set->joint, sizeof(int*)*ARRAYSIZE*k);
     for (i=ARRAYSIZE*(k - 1); i < ARRAYSIZE*k; i++) {
       set->joint[i] = (int*) malloc(sizeof(int)*(k-1-i));
     }
+    */
   } 
+  
   set->helices[idcount-1] = hc;
   set->hc_num = idcount;
 }
