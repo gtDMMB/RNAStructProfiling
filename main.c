@@ -11,14 +11,14 @@ using namespace std;
 
 /*input first the fasta file, then optionally the sample_1000.out file run on the fasta, then options*/
 int main(int argc, char *argv[]) {
-  int i,minh,input = 0, gtargs = 9;
+  int i,input = 0, gtargs = 9;
   char **args = NULL, *name;
   HASHTBL *deleteHash;
   FILE *fp;
   Set *set;
   Options *opt;
 
-  if (argc < 2) {
+  if (argc < 2 || !strcmp(argv[1],"--help")) {
 /*print out list of options
     fprintf(stderr,"Not enough arguments\n");
     exit(EXIT_FAILURE);*/
@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
 	opt->HC_FREQ = atof(argv[i+1]);
 	if (opt->HC_FREQ < 0 || opt->HC_FREQ > 100) {
 	  fprintf(stderr,"Error: invalid input %f for frequency threshold\n",opt->HC_FREQ);
-	  opt->HC_FREQ = 0;
+	  opt->HC_FREQ = -1;
 	}
 	i++;
       }
@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
 	opt->PROF_FREQ = atof(argv[i+1]);
 	if (opt->PROF_FREQ < 0 || opt->PROF_FREQ > 100) {
 	  fprintf(stderr,"Error: invalid input %lf for frequency threshold\n",opt->PROF_FREQ);
-	  opt->PROF_FREQ = 0;
+	  opt->PROF_FREQ = -1;
 	}
 	i++;
       }
@@ -221,12 +221,12 @@ GTBOLTZMANN OPTIONS
   else
     process_structs(set);
   reorder_helices(set);
-  minh = print_all_helices(set);
+  print_all_helices(set);
   printf("Total number of helix classes: %d\n",set->hc_num);
   
   if (set->opt->NUM_FHC)
     set->opt->HC_FREQ = set_num_fhc(set);
-  else if (set->opt->HC_FREQ==0) 
+  else if (set->opt->HC_FREQ==-1) 
     set->opt->HC_FREQ = set_threshold_entropy(set);
   
   if (set->opt->VERBOSE) {
@@ -247,12 +247,12 @@ GTBOLTZMANN OPTIONS
   print_profiles(set);
   if (set->opt->NUM_SPROF)
     set->opt->PROF_FREQ = set_num_sprof(set);
-  else if (set->opt->PROF_FREQ == 0) {
+  else if (set->opt->PROF_FREQ == -1) {
     //set->opt->PROF_FREQ = set_p_threshold(set,P_START);
     set->opt->PROF_FREQ = set_p_threshold_entropy(set);
   }
   if (set->opt->VERBOSE) {
-    if (set->opt->PROF_FREQ == -1) {
+    if (set->opt->PROF_FREQ == -2) {
       printf("No threshold set; every profile has frequency of 1\n");
     } else
       printf("setting p to %.1f\n",set->opt->PROF_FREQ);
