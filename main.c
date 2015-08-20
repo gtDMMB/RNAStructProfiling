@@ -11,14 +11,14 @@ using namespace std;
 
 /*input first the fasta file, then optionally the sample_1000.out file run on the fasta, then options*/
 int main(int argc, char *argv[]) {
-  int i,minh,input = 0, gtargs = 9;
+  int i,input = 0, gtargs = 9;
   char **args = NULL, *name;
   HASHTBL *deleteHash;
   FILE *fp;
   Set *set;
   Options *opt;
 
-  if (argc < 2) {
+  if (argc < 2 || !strcmp(argv[1],"--help")) {
 /*print out list of options
     fprintf(stderr,"Not enough arguments\n");
     exit(EXIT_FAILURE);*/
@@ -221,7 +221,7 @@ GTBOLTZMANN OPTIONS
   else
     process_structs(set);
   reorder_helices(set);
-  minh = print_all_helices(set);
+  print_all_helices(set);
   printf("Total number of helix classes: %d\n",set->hc_num);
   
   if (set->opt->NUM_FHC)
