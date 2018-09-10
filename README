@@ -12,7 +12,8 @@ page (https://github.com/gtfold/RNAStructProfiling/zipball/master).
 
 To compile on a Mac OSX machine, make sure your dependencies are satisfied.
 (The easiest way to satisfy dependencies is to install Xcode command line tools,
-the gcc compiler 4.7 or higher using MacPorts, and possibly GMP 6.0.0 if needed.)
+the gcc compiler 4.7 or higher using MacPorts, and possibly GMP 6.0.0 if needed.
+Note that the version of the gcc included with Xcode is NOT sufficient.)
 Rename
 libgtfold_osx.a -> libgtfold.a
 and follow the rest of directions.
