@@ -64,6 +64,24 @@ $ git clone https://github.com/gtDMMB/RNAStructProfiling.git
 $ cd RNAStructProfiling
 $ make
 $ ldd RNAprofile
+$ cp RNAprofile libgtfold.a /lib64/libm.so* /lib64/libgomp.so.1 /lib64/libgmp.so.10 /lib64/libstdc++.so.6 /lib64/libgcc_s.so.1 ProfilingWebsiteBinary/
+```
+
+## Recompiling the dot utility (from graphviz)
+
+```
+$ wget https://graphviz.gitlab.io/pub/graphviz/stable/SOURCES/graphviz.tar.gz
+$ tar xvzf graphviz.tar.gz
+$ cd graphviz*
+$ mkdir -p /private
+$ ./configure --enable-shared --with-rsvg=yes --prefix=/private CFLAGS="-fPIC" CXXFLAGS="-fPIC"
+$ make && sudo make install
+#$ sudo yum install graphviz.x86_64
+$ cp /private/bin/dot ~/RNAStructProfiling/ProfilingWebsiteBinary/
+$ ldd /private/bin/dot
+$ cp /private/lib/libgvc.so.6 /lib64/libdl.so.2 /lib64/libltdl.so.7 /private/lib/libxdot.so.4 /private/lib/libcgraph.so.6 /private/lib/libpathplan.so.4 /lib64/libexpat.so.1 /lib64/libz.so.1 /lib64/libm.so.6 /private/lib/libcdt.so.5 /lib64/libc.so.6 /lib64/ld-linux-x86-64.so.2 ~/RNAStructProfiling/ProfilingWebsiteBinary/
+$ mkdir -p ~/RNAStructProfiling/ProfilingWebsiteBinary/lib/graphviz/
+$ cp -r /private/lib/graphviz/config6 ~/RNAStructProfiling/ProfilingWebsiteBinary/lib/graphviz/
 ```
 
 ## Installing the newly built utilities
@@ -81,10 +99,11 @@ $ exit
 ### Copy over local files
 
 ```
-$ scp RNAprofile libgtfold.a /lib64/libm.so* /lib64/libgomp.so.1 /lib64/libgmp.so.10 /lib64/libstdc++.so.6 /lib64/libgcc_s.so.1 ourusername@OurServersIP:private/
+$ scp ProfilingWebsiteBinary/* ourusername@OurServersIP:private/
 $ ssh ourusername@OurServersIP
 $ export LD_LIBRARY_PATH=/private
 $ cd private
+$ mv ../httpdocs/dot ../private-*/
 $ ./RNAprofile
 ```
 
