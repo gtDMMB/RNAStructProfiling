@@ -35,7 +35,8 @@ node* createNode(char *name)
 Set* make_Set(char *name) {
   Set *set = (Set*) malloc(sizeof(Set));
   set->seq = NULL;
-  set->structfile = name;
+  set->structfile = (char *) malloc((strlen(name) + 1) * sizeof(char));
+  strcpy(set->structfile, name);
   set->hc_size = 5;
   set->hc_num = 0;
   set->helsum = 0;
