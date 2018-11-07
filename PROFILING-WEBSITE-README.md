@@ -1,10 +1,11 @@
-# Steps to re-creating a sane executable for the gtDMMB profiling website
+# Steps to re-creating sane executables for the gtDMMB profiling website
 
 ## Introduction
 
 Note that we have built the new files on a *CentOS 7.5 / x86_64* box. We have deduced by 
 upgrade timelines and when the functionality on the website began to disappear 
-that this is the best possible platform ([see here]()): 
+that this is the best possible platform to try our new build with 
+([see here](https://en.wikipedia.org/wiki/CentOS#Latest_version_information)): 
 ```
 $ echo $(cat /etc/centos-release) "[$(uname -m)]"
 CentOS Linux release 7.5.1804 (Core) [x86_64]
@@ -17,6 +18,17 @@ However, since the resulting replacement libraries and executables are designed 
 linker references to *dynamic* libraries (which, as we have seen, can change over time), 
 it **shouldn't** be necessary to repeat the steps in this README. It is nonetheless being 
 created as user documentation to accompany the project. 
+
+Note that most of the steps we have 
+to take here are not so much to counter the libraries that have been *changed* when the 
+webserver was upgraded to a new version of CentOS, but to make up for how absolutely 
+locked down and chrooted the webserver shell actually is. That is to say, that since there 
+are very few standard Linux commandline tools available on the server machine, if you need 
+any specific novel functionality on this host, then you will need to find some way to make 
+your executable know about the libraries to get it done without any intervention from common, 
+or even standard, system-level library functionality.
+
+### Installing packages we will need later
 
 We also need to install the following CentOS packages with ``yum``:
 ```
@@ -37,6 +49,11 @@ Another solid option to look into if this process is necessary in the future is 
 with possibly dynamically linked libraries and produces one *large(r)* executable which has 
 no dynamic library dependencies. There are other good utilities like this, e.g., 
 [Ermine](http://www.magicermine.com/), but to my knowledge these are not freeware applications. 
+In particular, ``ermine`` is definitely for-pay software (they even only give teasers of your 
+statically linked applications which *expire* in 14 days :anguished:). 
+Also, based on my experience with these builds today, the open source alternative
+of note which is ``statifier`` has significant problems parsing binaries on 64-bit 
+architectures :disappointed:. 
 
 ## Compiling GTFold as a statically linked library (*.a file)
 
@@ -51,12 +68,19 @@ $ g++ -o libgtfold.a -shared -Wl,-Bdynamic -lm -lgomp -lgmp -Wl,--verbose $OBJFI
 $ export LIBGTFOLD=$(readlink -f ./libgtfold.a)
 $ cd ~
 ```
+I believe that this step was necessary as the existing static ``libgtfold.a`` variants 
+provided in precompiled binary form with the profiling software do not currently link 
+correctly. At any rate, what we have done here is statically package up all of the 
+*GTFold-specific* functions into our archive file ``libgtfold.a``, but the resulting 
+runtime binaries that will link against this will still have some dependencies on dynamic 
+libraries -- namely, the stdc++/glibc libraries which do not seem to like to play nice with 
+static linkage. 
 
-## Compiling the <RNA Profiling Software> as a standalone (statically-linked) executable
+## Compiling RNAProfile as a standalone (mostly statically-linked) executable
 
 First, setup the ``Makefile`` check to see if we need to compile with static linkage of 
 libraries only (*we DO want this here*):
-``
+```
 $ export STATIC_LINKAGE_ONLY=yes
 $ cp $LIBGTFOLD ./
 $ unset LIBGTFOLD
@@ -69,6 +93,10 @@ $ cp RNAprofile libgtfold.a /lib64/libm.so* /lib64/libgomp.so.1 /lib64/libgmp.so
 
 ## Recompiling the dot utility (from graphviz)
 
+This was another key part of the binary equation that was missing on the profiling website. 
+The ``dot`` utility is a part of the [GraphViz](https://graphviz.org/) 
+graph visualization software package. Due to the way that these bundled utilities interpret their 
+absolute (versus relative) paths, what follows is probably the worst of it:
 ```
 $ wget https://graphviz.gitlab.io/pub/graphviz/stable/SOURCES/graphviz.tar.gz
 $ tar xvzf graphviz.tar.gz
@@ -84,7 +112,7 @@ $ mkdir -p ~/RNAStructProfiling/ProfilingWebsiteBinary/lib/graphviz/
 $ cp -r /private/lib/graphviz/config6 ~/RNAStructProfiling/ProfilingWebsiteBinary/lib/graphviz/
 ```
 
-## Installing the newly built utilities
+## Installing the newly built utilities onto the web server box
 
 ### Backups (if necessary):
 
@@ -106,9 +134,6 @@ $ cd private
 $ mv ../httpdocs/dot ../private-*/
 $ ./RNAprofile
 ```
-
-## Demonstration of point
-
 Now head over to the [profiling website](http://rnaprofiling.gatech.edu/), 
 enter some ascii string filled with "a/t/c/u/g"'s and observe that the previously 
 existing errors have disappeared. :smile: :check_mark: :exclamation_point:
