@@ -35,6 +35,7 @@ We also need to install the following CentOS packages with ``yum``:
 $ sudo yum install glibc-static libstdc++-static
 $ sudo yum install gmp-devel
 $ sudo yum install glibc-devel.i686 libgcc.i686 libstdc++-devel.i686 ncurses-devel.i686
+$ sudo yum install expat.x86_64 expat-devel.x86_64
 ```
 This will allow us to statically link standard C++ library functions, including the math
 library with ``-lm``, into our profiling code binary. Again, the purpose of this is that if 
@@ -91,6 +92,16 @@ $ ldd RNAprofile
 $ cp RNAprofile libgtfold.a /lib64/libm.so* /lib64/libgomp.so.1 /lib64/libgmp.so.10 /lib64/libstdc++.so.6 /lib64/libgcc_s.so.1 ProfilingWebsiteBinary/
 ```
 
+## Installing libexpat from source
+
+```
+$ wget https://github.com/libexpat/libexpat/releases/download/R_2_2_6/expat-2.2.6.tar.bz2
+$ tar xvjf expat-2.2.6.tar.bz2
+$ cd expat-2.2.6
+$ ./configure CFLAGS="-fPIC" CXXFLAGS="-fPIC"
+$ make && sudo make install
+```
+
 ## Recompiling the dot utility (from graphviz)
 
 This was another key part of the binary equation that was missing on the profiling website. 
@@ -102,12 +113,13 @@ $ wget https://graphviz.gitlab.io/pub/graphviz/stable/SOURCES/graphviz.tar.gz
 $ tar xvzf graphviz.tar.gz
 $ cd graphviz*
 $ mkdir -p /private
-$ ./configure --enable-shared --with-rsvg=yes --prefix=/private CFLAGS="-fPIC" CXXFLAGS="-fPIC"
+$ rpm -ql expat-devel
+$ sed -i 's|sys_lib_dlsearch_path_spec=\"/lib64 /usr/lib64 /lib /usr/lib\"|sys_lib_dlsearch_path_spec=\"/usr/lib64 /lib64 /lib /usr/lib\"|g' ./configure
+$ ./configure --enable-shared --enable-static --with-rsvg=yes --with-expatincludedir=/usr/local/include --with-expatlibdir=/usr/local/include --prefix=/private CFLAGS="-fPIC" CXXFLAGS="-fPIC" LDFLAGS="/usr/local/lib/libexpat.a"
 $ make && sudo make install
-#$ sudo yum install graphviz.x86_64
 $ cp /private/bin/dot ~/RNAStructProfiling/ProfilingWebsiteBinary/
 $ ldd /private/bin/dot
-$ cp /private/lib/libgvc.so.6 /lib64/libdl.so.2 /lib64/libltdl.so.7 /private/lib/libxdot.so.4 /private/lib/libcgraph.so.6 /private/lib/libpathplan.so.4 /lib64/libexpat.so.1 /lib64/libz.so.1 /lib64/libm.so.6 /private/lib/libcdt.so.5 /lib64/libc.so.6 /lib64/ld-linux-x86-64.so.2 ~/RNAStructProfiling/ProfilingWebsiteBinary/
+$ cp /private/lib/libgvc.so.6 /lib64/libdl.so.2 /lib64/libltdl.so.7 /private/lib/libxdot.so.4 /private/lib/libcgraph.so.6 /private/lib/libpathplan.so.4 /lib64/libz.so.1 /lib64/libm.so.6 /private/lib/libcdt.so.5 /lib64/libc.so.6 /lib64/ld-linux-x86-64.so.2 ~/RNAStructProfiling/ProfilingWebsiteBinary/
 $ mkdir -p ~/RNAStructProfiling/ProfilingWebsiteBinary/lib/graphviz/
 $ cp -r /private/lib/graphviz/config6 ~/RNAStructProfiling/ProfilingWebsiteBinary/lib/graphviz/
 ```
